@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.3.2 - 2026-08-14
+
+- Record that the version 1.3.1 executable-only `IX32.def` redirection did not
+  change the standard scenario selector.
+- Identify the sole `HD_HOTA.dll` `un32.def` resource string and its four
+  32x32 image-control constructor references.
+- Redirect the HD DLL's shared resource string to `ix32.def`, preserving all
+  other heroes because the isolated atlas differs only at Nyx's frame.
+- Guard, back up, and verify the original and already-patched DLL states.
+- Mark in-game confirmation of the HD DLL redirection as pending.
+
 ## 1.3.1 - 2026-08-14
 
 - Identify the standard scenario selector's dynamic `UN32.def` construction

@@ -31,6 +31,7 @@ const scenarioName = "IX32.def";
 const scenarioLoosePath = path.join("Data", scenarioName);
 const specialtyNames = ["UN32.def", "UN44.def", scenarioName, "IX44.def"];
 const scenarioStringOffset = 0x2817dc;
+const scenarioDllStringOffset = 0x295ff0;
 const originalScenarioName = Buffer.from("un32.def\0", "latin1");
 const patchedScenarioName = Buffer.from("ix32.def\0", "latin1");
 const positionOffset = 0x234d9a;
@@ -270,11 +271,22 @@ function patchDll(buffer) {
   if (!buffer.subarray(positionOffset, positionOffset + 4).equals(finalPosition)) {
     throw new Error("Unexpected specialty position bytes in HD_HOTA.dll.");
   }
+  const scenarioResource = buffer.subarray(
+    scenarioDllStringOffset,
+    scenarioDllStringOffset + originalScenarioName.length,
+  );
+  if (
+    !scenarioResource.equals(originalScenarioName) &&
+    !scenarioResource.equals(patchedScenarioName)
+  ) {
+    throw new Error("Unexpected scenario resource name in HD_HOTA.dll.");
+  }
   const layout = buffer.subarray(layoutOffset, layoutOffset + currentLayout.length);
   if (!layout.equals(currentLayout) && !layout.equals(finalLayout)) {
     throw new Error("Unexpected specialty layout code in HD_HOTA.dll.");
   }
   const updated = Buffer.from(buffer);
+  patchedScenarioName.copy(updated, scenarioDllStringOffset);
   if (layout.equals(currentLayout)) {
     finalLayout.copy(updated, layoutOffset);
   }
@@ -447,6 +459,13 @@ for (const relativePath of [files.exe, files.hdExe]) {
   if (!installed.equals(patchedScenarioName)) {
     throw new Error(`Scenario resource redirection failed: ${relativePath}`);
   }
+}
+const installedDllScenario = read(files.dll).subarray(
+  scenarioDllStringOffset,
+  scenarioDllStringOffset + patchedScenarioName.length,
+);
+if (!installedDllScenario.equals(patchedScenarioName)) {
+  throw new Error("Scenario resource redirection failed: HD_HOTA.dll");
 }
 for (const relativePath of [files.spritesBase, files.spritesExpansion]) {
   const archive = read(relativePath);

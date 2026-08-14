@@ -217,9 +217,32 @@ Version 1.3.1 changes the same-length string to `ix32.def` in `h3hota.exe` and
 4. Guards both the original and already-patched executable states.
 5. Backs up all affected files before writing.
 
-This avoids the original resource name and any cached same-name atlas. The
-installation and byte-level validation succeeded; in-game confirmation in
-the standard scenario selector is pending.
+This avoided the original executable resource name and any cached same-name
+atlas, but in-game testing still showed Bloodlust. That result proves the
+standard scenario selector does not use this executable construction path.
+
+`HD_HOTA.dll` contains its own single `un32.def` string at virtual address
+`0x012975F0`, file offset `0x295FF0`. Four code sites pass it to the standard
+image constructor:
+
+```text
+0x010337F1
+0x01033B88
+0x01037658
+0x010379EC
+```
+
+The controls are constructed with initial frames 105 or 106. They are
+persistent dialog controls whose frame may later be changed to the selected
+hero, which explains why the constructor sites do not directly contain hero
+ID 140.
+
+Version 1.3.2 redirects this shared HD DLL string to `ix32.def` as well. The
+new atlas is byte-identical to `UN32.def` except for the already-patched Nyx
+frame, so the change preserves every other hero. The finalizer guards both
+the original and already-patched DLL states and includes `HD_HOTA.dll` in its
+timestamped backup. In-game confirmation of this second-stage redirection is
+pending.
 
 An earlier experimental rewrite of the HD portrait loader was reverted. It
 crashed at `HD_HOTA.dll+0x23516A` while reading `0x9090911C`. The runtime
@@ -254,4 +277,6 @@ probe later showed that loader rewriting was unnecessary.
   `UN32.def`
 - Verification that both executable lookups and all loose/HD resource paths
   use the isolated scenario resource
+- Verification that the sole `HD_HOTA.dll` `un32.def` string and all four of
+  its image-constructor references use the isolated resource
 - In-game verification of the standard scenario selector remains pending

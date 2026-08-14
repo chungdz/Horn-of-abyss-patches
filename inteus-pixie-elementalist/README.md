@@ -1,6 +1,6 @@
 # Nyx Pixie Elementalist
 
-Version 1.3.1
+Version 1.3.2
 
 This patch replaces Inteus, hero ID 140, with Nyx in Horn of the Abyss 1.8.0.
 It uses Inteus's existing Elementalist slot, so he remains available in the
@@ -23,15 +23,17 @@ Conflux starting-hero selector for random maps.
 The following still requires in-game verification in HotA 1.8.0 with
 HD Mod 5.6 R16:
 
-- The standard scenario hero selector now uses an isolated `IX32.def`
-  resource, but this final redirection has not yet been confirmed in-game.
+- The standard scenario hero selector now redirects both the game executable
+  and HD Mod's dialog controls to an isolated `IX32.def` resource, but the
+  HD DLL redirection has not yet been confirmed in-game.
 - Standard in-game specialty views may report that the redirected picture is
   missing.
 
-The earlier same-name `UN32.def` overrides were ignored by the standard
-scenario dialog. Version 1.3.1 redirects that dialog's executable lookup to a
-new resource name to avoid the original atlas's cached path. See
-[TECHNICAL.md](TECHNICAL.md) for the exact call site and validation.
+The earlier same-name `UN32.def` overrides and the version 1.3.1
+executable-only redirection were ignored by the standard scenario dialog.
+Version 1.3.2 also redirects the shared resource used by `HD_HOTA.dll`'s
+32x32 dialog controls. See [TECHNICAL.md](TECHNICAL.md) for the exact call
+sites and validation.
 
 ## Requirements
 
@@ -115,5 +117,5 @@ implementation. Its specialty control is patched directly to use built-in
 `CPRSMALL.def` frame 120 and is positioned correctly. HD Mod serves the custom
 hero portrait from registered BMP replacements for HotA's HPL/HPS PCX
 requests. The standard scenario selector now requests an isolated `IX32.def`
-copy of the patched atlas; in-game confirmation of that final change is
-pending.
+copy of the patched atlas through both the executable and HD DLL paths;
+in-game confirmation of the HD DLL change is pending.
