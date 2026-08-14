@@ -1,24 +1,24 @@
 # Nyx Pixie Elementalist
 
-Version 1.4.0
+Version 1.5.0
 
 This patch replaces Inteus, hero ID 140, with Nyx in Horn of the Abyss 1.8.0.
 It uses Inteus's existing Elementalist slot, so he remains available in the
 Conflux starting-hero selector for random maps.
 
-## Confirmed Result
+## Patch Result
 
 - Class: Elementalist
 - Specialty: Pixies and Sprites
 - Specialty effect: Speed +1 and Attack/Defense +10% per hero level, rounded up
-- Starting skills: Basic Fire Magic and Basic Tactics
+- Starting skills: Basic Fire Magic and Basic Wisdom
 - Starting spell: Fire Wall
+- Starting army: three stacks of 22-25 Pixies
 - Random-map Advanced Options specialty picture: Pixie
 - Random-map starting-hero portrait: custom Nyx portrait
 - Standard scenario hero-selection specialty picture: Pixie
 - Standard in-game hero specialty picture: Pixie
 - Hero name: Nyx
-- Starting army and class: unchanged
 
 ## Known Limitations
 
@@ -27,9 +27,12 @@ The standard scenario and in-game specialty-picture fix uses HD Mod's optional
 that path if another DLL already occupies it. Combining this patch with
 another mod that needs the same loader slot requires merging the DLL behavior.
 
-The transparent replacement is generated from the exact Pixie sprite used by
-the random-map popup. Its DEF structure and transparency have been verified;
-the latest background-removal adjustment still needs a visual in-game check.
+Standard specialty panels place a cyan placeholder underneath their original
+full-square artwork. A transparent Pixie therefore reveals cyan rather than
+the dialog beneath it. Version 1.5.0 mirrors the Pixie to face left and
+composites it over the game's native brown dialog texture. The generated
+frames contain no cyan-key pixels; the new image, skill, and army changes
+still need a visual/gameplay check in-game.
 
 ## Requirements
 
@@ -113,12 +116,13 @@ The included `NyxRuntimeFix.dll` is custom code built from the source under
 
 The random-map Advanced Options popup is a separate `HD_HOTA.dll`
 implementation. Its specialty control is patched directly to use built-in
-`CPRSMALL.def` frame 120 and is positioned correctly. HD Mod serves the custom
-hero portrait from registered BMP replacements for HotA's HPL/HPS PCX
-requests.
+`CPRSMALL.def` frame 120, mirrors it to face left, and positions it correctly.
+HD Mod serves the custom hero portrait from registered BMP replacements for
+HotA's HPL/HPS PCX requests.
 
 Standard scenario and in-game views cache the original `UN32.def` and
 `UN44.def` frames. At startup the custom runtime fix replaces only frame 140
 in those loaded atlases with uniquely named frames from `IX32.def` and
 `IX44.def`. Both views are confirmed working. The 30x32 `CPRSMALL.def` Pixie
-is copied without scaling onto transparent 32x32 and 44x44 canvases.
+is mirrored without scaling and composited over `DiBoxBck.pcx` on 32x32 and
+44x44 canvases.

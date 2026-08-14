@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.5.0 - 2026-08-14
+
+- Replace Basic Tactics with Basic Wisdom while retaining Basic Fire Magic
+  and Fire Wall.
+- Change all three starting creature IDs to Pixie and set every low/high
+  amount pair to 22/25.
+- Mirror the Pixie pixels in `IX32.def` and `IX44.def` so the standard
+  specialty pictures face left.
+- Mirror the separate `CPRSMALL.def` control in the random-map Advanced
+  Options popup through its `HD_HOTA.dll` constructor argument.
+- Record that transparent pixels in standard specialty views reveal the
+  dialog's cyan placeholder because the original atlas frames are full-square
+  artwork.
+- Composite the mirrored Pixie over the native `DiBoxBck.pcx` brown dialog
+  texture instead. Verify both generated frames contain zero cyan-key pixels.
+- Guard upgrades from the previous Fire Magic/Tactics and mixed-creature
+  record, back up all touched files, and update `patch.js` state inspection.
+
 ## 1.4.0 - 2026-08-14
 
 - Trace the standard scenario and in-game specialty paths at runtime and

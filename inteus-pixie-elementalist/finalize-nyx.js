@@ -24,6 +24,7 @@ const runtimeHookPath = path.join("_HD3_Data", "Common", "setseed.dll");
 const runtimeHookAsset = fs.readFileSync(
   path.join(__dirname, "assets", "NyxRuntimeFix.dll"),
 );
+const dialogBackgroundName = "DiBoxBck.pcx";
 const portraitNames = ["HPL004EL.pcx", "HPS004EL.pcx"];
 const portraitAssets = portraitNames.map((name) =>
   fs.readFileSync(path.join(__dirname, "assets", name)),
@@ -54,9 +55,31 @@ const scenarioStringOffset = 0x2817dc;
 const scenarioDllStringOffset = 0x295ff0;
 const originalScenarioName = Buffer.from("un32.def\0", "latin1");
 const patchedScenarioName = Buffer.from("ix32.def\0", "latin1");
+const heroDataOffset = 0x27d020;
+const armyAmountsOffset = heroDataOffset + 0x44;
+const originalHeroRecord = Buffer.from(
+  "00000000070000001100000007000000010000000e00000001000000010000002b000000760000007000000073000000",
+  "hex",
+);
+const legacyHeroRecord = Buffer.from(
+  "0000000007000000110000000e000000010000001300000001000000010000000d000000760000007000000073000000",
+  "hex",
+);
+const finalHeroRecord = Buffer.from(
+  "0000000007000000110000000e000000010000000700000001000000010000000d000000760000007600000076000000",
+  "hex",
+);
+const emptyArmyAmounts = Buffer.alloc(24);
+const finalArmyAmounts = Buffer.from(
+  "160000001900000016000000190000001600000019000000",
+  "hex",
+);
 const positionOffset = 0x234d9a;
+const mirrorOffset = 0x234d83;
 const layoutOffset = 0x234dc3;
 const finalPosition = Buffer.from("6a126a4e", "hex");
+const originalMirror = Buffer.from([0x00]);
+const finalMirror = Buffer.from([0x01]);
 const currentLayout = Buffer.from(
   "8b45cc8b4830668b51306689501c668b51346689501e6683401a0a90909090909090",
   "hex",
@@ -121,6 +144,27 @@ function lodPcxToBmp(pcx, expectedWidth, expectedHeight) {
     );
   }
   return bmp;
+}
+
+function decodeLodPcx(pcx) {
+  if (pcx.length < 12 + 768) {
+    throw new Error("LOD-PCX resource is truncated.");
+  }
+  const pixelSize = pcx.readUInt32LE(0);
+  const width = pcx.readUInt32LE(4);
+  const height = pcx.readUInt32LE(8);
+  if (
+    pixelSize !== width * height ||
+    pcx.length !== 12 + pixelSize + 768
+  ) {
+    throw new Error(`Unexpected LOD-PCX layout: ${width}x${height}.`);
+  }
+  return {
+    height,
+    palette: pcx.subarray(12 + pixelSize),
+    pixels: pcx.subarray(12, 12 + pixelSize),
+    width,
+  };
 }
 
 const portraitBmpAssets = [
@@ -338,7 +382,12 @@ function paletteColor(definition, paletteIndex) {
   ];
 }
 
-function pixieSpecialtyPixels(pixieIcons, specialtyIcons, iconSize) {
+function pixieSpecialtyPixels(
+  pixieIcons,
+  specialtyIcons,
+  dialogBackground,
+  iconSize,
+) {
   const source = decodeDefFrame(pixieIcons, 120);
   if (source.width !== 30 || source.height !== 32) {
     throw new Error(
@@ -355,33 +404,68 @@ function pixieSpecialtyPixels(pixieIcons, specialtyIcons, iconSize) {
   const targetPalette = Array.from({ length: 256 }, (_, index) =>
     paletteColor(specialtyIcons, index),
   );
-  const paletteMap = Array.from({ length: 256 }, (_, sourceIndex) => {
-    if (sourceIndex < 8) {
-      return sourceIndex;
-    }
-    const sourceColor = sourcePalette[sourceIndex];
+  const background = decodeLodPcx(dialogBackground);
+  if (background.width !== 256 || background.height !== 256) {
+    throw new Error(
+      `Unexpected dialog background dimensions: ${background.width}x${background.height}.`,
+    );
+  }
+  const backgroundPalette = Array.from({ length: 256 }, (_, index) => {
+    const offset = index * 3;
+    return [
+      background.palette[offset],
+      background.palette[offset + 1],
+      background.palette[offset + 2],
+    ];
+  });
+  const nearestTargetIndex = (color) => {
     let bestIndex = 8;
     let bestDistance = Number.POSITIVE_INFINITY;
     for (let targetIndex = 8; targetIndex < 256; targetIndex += 1) {
       const targetColor = targetPalette[targetIndex];
       const distance =
-        (sourceColor[0] - targetColor[0]) ** 2 +
-        (sourceColor[1] - targetColor[1]) ** 2 +
-        (sourceColor[2] - targetColor[2]) ** 2;
+        (color[0] - targetColor[0]) ** 2 +
+        (color[1] - targetColor[1]) ** 2 +
+        (color[2] - targetColor[2]) ** 2;
       if (distance < bestDistance) {
         bestDistance = distance;
         bestIndex = targetIndex;
       }
     }
     return bestIndex;
+  };
+  const paletteMap = Array.from({ length: 256 }, (_, sourceIndex) => {
+    if (sourceIndex < 8) {
+      return sourceIndex;
+    }
+    return nearestTargetIndex(sourcePalette[sourceIndex]);
   });
+  const backgroundMap = backgroundPalette.map(nearestTargetIndex);
 
-  const pixels = Buffer.alloc(iconSize * iconSize, 0);
+  const pixels = Buffer.alloc(iconSize * iconSize);
+  const textureLeft = 84;
+  const textureTop = 0;
+  for (let y = 0; y < iconSize; y += 1) {
+    for (let x = 0; x < iconSize; x += 1) {
+      const backgroundIndex =
+        background.pixels[
+          ((textureTop + y) % background.height) * background.width +
+          ((textureLeft + x) % background.width)
+        ];
+      pixels[y * iconSize + x] = backgroundMap[backgroundIndex];
+    }
+  }
   const left = Math.floor((iconSize - source.width) / 2);
   const top = Math.floor((iconSize - source.height) / 2);
   for (let y = 0; y < source.height; y += 1) {
     for (let x = 0; x < source.width; x += 1) {
-      const sourceIndex = source.pixels[y * source.width + x];
+      const sourceIndex =
+        source.pixels[
+          y * source.width + (source.width - 1 - x)
+        ];
+      if (sourceIndex === 0) {
+        continue;
+      }
       pixels[(top + y) * iconSize + left + x] = paletteMap[sourceIndex];
     }
   }
@@ -415,12 +499,18 @@ function replaceDefFramePixels(definition, frameIndex, size, pixels) {
   return Buffer.concat([updated, frame]);
 }
 
-function buildSpecialtyDef(archive, variant, uniqueName) {
+function buildSpecialtyDef(
+  archive,
+  dialogBackground,
+  variant,
+  uniqueName,
+) {
   const pixieIcons = extractLodEntry(archive, "CPRSMALL.def");
   const specialtyIcons = extractLodEntry(archive, variant.sourceName);
   const pixels = pixieSpecialtyPixels(
     pixieIcons,
     specialtyIcons,
+    dialogBackground,
     variant.size,
   );
   const patched = replaceDefFramePixels(
@@ -450,13 +540,42 @@ function patchScenarioLookup(executable) {
   return updated;
 }
 
-function patchSpecialtyArchive(archive) {
+function patchExecutable(executable) {
+  const updated = patchScenarioLookup(executable);
+  const heroRecord = updated.subarray(
+    heroDataOffset,
+    heroDataOffset + finalHeroRecord.length,
+  );
+  if (
+    !heroRecord.equals(originalHeroRecord) &&
+    !heroRecord.equals(legacyHeroRecord) &&
+    !heroRecord.equals(finalHeroRecord)
+  ) {
+    throw new Error("Unexpected Nyx hero record.");
+  }
+  const armyAmounts = updated.subarray(
+    armyAmountsOffset,
+    armyAmountsOffset + finalArmyAmounts.length,
+  );
+  if (
+    !armyAmounts.equals(emptyArmyAmounts) &&
+    !armyAmounts.equals(finalArmyAmounts)
+  ) {
+    throw new Error("Unexpected Nyx starting-army amount record.");
+  }
+  finalHeroRecord.copy(updated, heroDataOffset);
+  finalArmyAmounts.copy(updated, armyAmountsOffset);
+  return updated;
+}
+
+function patchSpecialtyArchive(archive, dialogBackground) {
   let updated = archive;
   for (const variant of specialtyVariants) {
     const source = findLodEntry(updated, variant.sourceName);
     const originalSource = extractLodEntry(updated, variant.sourceName);
     const patchedSource = buildSpecialtyDef(
       updated,
+      dialogBackground,
       variant,
       false,
     );
@@ -539,12 +658,17 @@ function patchDll(buffer) {
   ) {
     throw new Error("Unexpected scenario resource name in HD_HOTA.dll.");
   }
+  const mirror = buffer.subarray(mirrorOffset, mirrorOffset + 1);
+  if (!mirror.equals(originalMirror) && !mirror.equals(finalMirror)) {
+    throw new Error("Unexpected Pixie mirror argument in HD_HOTA.dll.");
+  }
   const layout = buffer.subarray(layoutOffset, layoutOffset + currentLayout.length);
   if (!layout.equals(currentLayout) && !layout.equals(finalLayout)) {
     throw new Error("Unexpected specialty layout code in HD_HOTA.dll.");
   }
   const updated = Buffer.from(buffer);
   patchedScenarioName.copy(updated, scenarioDllStringOffset);
+  finalMirror.copy(updated, mirrorOffset);
   if (layout.equals(currentLayout)) {
     finalLayout.copy(updated, layoutOffset);
   }
@@ -580,6 +704,10 @@ function patchFilesIni(buffer, namesToAdd, namesToRemove = []) {
 const originals = Object.fromEntries(
   Object.values(files).map((relativePath) => [relativePath, read(relativePath)]),
 );
+const dialogBackground = extractLodEntry(
+  originals[files.bitmap],
+  dialogBackgroundName,
+);
 if (
   fs.existsSync(path.join(gameDir, runtimeHookPath)) &&
   !read(runtimeHookPath).equals(runtimeHookAsset)
@@ -590,6 +718,7 @@ if (
 }
 const scenarioSourceDef = buildSpecialtyDef(
   originals[files.spritesExpansion],
+  dialogBackground,
   specialtyVariants[0],
   false,
 );
@@ -600,6 +729,7 @@ const scenarioDef = renameDefFrame(
 );
 const displaySourceDef = buildSpecialtyDef(
   originals[files.spritesExpansion],
+  dialogBackground,
   specialtyVariants[1],
   false,
 );
@@ -668,17 +798,20 @@ for (const pack of ["#hota", "#hota15"]) {
 }
 fs.writeFileSync(path.join(backupDir, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 
-writeIfChanged(files.exe, patchScenarioLookup(originals[files.exe]));
-writeIfChanged(files.hdExe, patchScenarioLookup(originals[files.hdExe]));
+writeIfChanged(files.exe, patchExecutable(originals[files.exe]));
+writeIfChanged(files.hdExe, patchExecutable(originals[files.hdExe]));
 writeIfChanged(files.dll, patchDll(originals[files.dll]));
 writeIfChanged(files.language, patchLanguage(originals[files.language]));
 writeIfChanged(
   files.spritesBase,
-  patchSpecialtyArchive(originals[files.spritesBase]),
+  patchSpecialtyArchive(originals[files.spritesBase], dialogBackground),
 );
 writeIfChanged(
   files.spritesExpansion,
-  patchSpecialtyArchive(originals[files.spritesExpansion]),
+  patchSpecialtyArchive(
+    originals[files.spritesExpansion],
+    dialogBackground,
+  ),
 );
 writeIfChanged(files.bitmap, patchPortraits(originals[files.bitmap]));
 writeIfChanged(
@@ -778,12 +911,35 @@ for (const pack of ["#hota", "#hota15"]) {
 }
 
 for (const relativePath of [files.exe, files.hdExe]) {
-  const installed = read(relativePath).subarray(
+  const executable = read(relativePath);
+  const installed = executable.subarray(
     scenarioStringOffset,
     scenarioStringOffset + patchedScenarioName.length,
   );
   if (!installed.equals(patchedScenarioName)) {
     throw new Error(`Scenario resource redirection failed: ${relativePath}`);
+  }
+  if (
+    !executable
+      .subarray(
+        heroDataOffset,
+        heroDataOffset + finalHeroRecord.length,
+      )
+      .equals(finalHeroRecord)
+  ) {
+    throw new Error(`Hero record verification failed: ${relativePath}`);
+  }
+  if (
+    !executable
+      .subarray(
+        armyAmountsOffset,
+        armyAmountsOffset + finalArmyAmounts.length,
+      )
+      .equals(finalArmyAmounts)
+  ) {
+    throw new Error(
+      `Starting-army amount verification failed: ${relativePath}`,
+    );
   }
 }
 const installedDllScenario = read(files.dll).subarray(
@@ -792,6 +948,13 @@ const installedDllScenario = read(files.dll).subarray(
 );
 if (!installedDllScenario.equals(patchedScenarioName)) {
   throw new Error("Scenario resource redirection failed: HD_HOTA.dll");
+}
+if (
+  !read(files.dll)
+    .subarray(mirrorOffset, mirrorOffset + finalMirror.length)
+    .equals(finalMirror)
+) {
+  throw new Error("Pixie mirror verification failed: HD_HOTA.dll");
 }
 for (const relativePath of [files.spritesBase, files.spritesExpansion]) {
   const archive = read(relativePath);
@@ -814,9 +977,13 @@ for (const relativePath of [files.spritesBase, files.spritesExpansion]) {
       (count, pixel) => count + (pixel < 8 ? 1 : 0),
       0,
     );
-    if (transparentPixels === 0) {
+    const cyanKeyPixels = actual.pixels.reduce(
+      (count, pixel) => count + (pixel === 0 ? 1 : 0),
+      0,
+    );
+    if (transparentPixels === 0 || cyanKeyPixels !== 0) {
       throw new Error(
-        `Specialty transparency verification failed: ${relativePath}/${variant.targetName}`,
+        `Specialty background verification failed: ${relativePath}/${variant.targetName}`,
       );
     }
   }

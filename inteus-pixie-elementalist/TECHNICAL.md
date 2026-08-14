@@ -47,10 +47,13 @@ the upgraded Sprite. No custom combat formula is injected.
 At file offset `0x27D020`, the hero record changes:
 
 - Basic Wisdom to Basic Fire Magic, secondary skill ID 14
-- Basic Fire Magic to Basic Tactics, secondary skill ID 19
+- Basic Fire Magic to Basic Wisdom, secondary skill ID 7
 - Starting spell 43 (Bloodlust) to spell 13 (Fire Wall)
+- All three starting creature IDs to Pixie, creature ID 118
 
-The army creature IDs `118`, `112`, and `115` remain unchanged.
+The three `H3HeroInfo::StartingCreatures` low/high pairs begin at file offset
+`0x27D064`. Each pair changes from `0/0` to `22/25`, producing three Pixie
+stacks with the requested range.
 
 ## Text Archive
 
@@ -76,19 +79,24 @@ runtime archive-resolution order.
 The final image generator:
 
 1. Extracts `CPRSMALL.def`, `UN32.def`, and `UN44.def` from each sprite
-   archive.
+   archive, plus `DiBoxBck.pcx` from `Data/H3bitmap.lod`.
 2. Decodes `CPRSMALL.def` frame 120, internal name `CPrS118E.pcx`. This is the
    exact transparent Pixie sprite used by the random-map popup and measures
    30x32 pixels.
-3. Preserves special DEF palette indices 0-7, including transparency and
-   shadow semantics. Regular colors are mapped to the nearest target-atlas
-   palette index from 8 through 255.
-4. Places the sprite without scaling at `(1,0)` on a transparent 32x32 canvas
-   and at `(7,6)` on a transparent 44x44 canvas.
-5. Appends each result as an uncompressed frame and redirects only frame 140.
-6. Adds isolated `IX32.def` and `IX44.def` copies whose frame 140 internal
+3. Mirrors the source horizontally so the Pixie faces left.
+4. Standard specialty panels have a cyan placeholder under the original
+   full-square artwork, so true transparency exposes cyan. The generator
+   fills each canvas from the game's native 256x256 brown dialog texture
+   before drawing the Pixie.
+5. Maps the Pixie and dialog texture colors to the nearest target-atlas
+   palette index from 8 through 255. Nonzero special Pixie indices are
+   retained; transparent source index 0 leaves the brown texture visible.
+6. Places the sprite without scaling at `(1,0)` on a 32x32 canvas and at
+   `(7,6)` on a 44x44 canvas.
+7. Appends each result as an uncompressed frame and redirects only frame 140.
+8. Adds isolated `IX32.def` and `IX44.def` copies whose frame 140 internal
    names are `NYX32PIX.PCX` and `NYX44PIX.PCX`.
-7. Installs all four atlases in both HD compatibility packs and registers
+9. Installs all four atlases in both HD compatibility packs and registers
    them in `Files.ini`.
 
 No other hero's specialty frame is changed.
@@ -124,6 +132,7 @@ registered by the HD module:
 ```text
 resource = CPRSMALL.def
 frame = 120 (CPrS118E.pcx, Pixie)
+mirror = 1
 constructor x = 78
 constructor y = 18
 ```
@@ -132,6 +141,7 @@ The exact `HD_HOTA.dll` file changes are:
 
 | File offset | Original | Patched | Purpose |
 | --- | --- | --- | --- |
+| `0x234D83` | `00` | `01` | Mirror the Pixie to face left |
 | `0x234D86` | `8B 45 08 50` | `6A 78 90 90` | Push fixed Pixie frame 120 instead of hero ID |
 | `0x234D8B` | `3C 04 2A 01` | `AC 6D 29 01` | Point to `CPRSMALL.def` at VA `0x01296DAC` |
 | `0x234D9A` | `6A 12 6A 48` | `6A 12 6A 4E` | Move the item right 6 |
@@ -334,5 +344,10 @@ probe later showed that loader rewriting was unnecessary.
   and the entered scenario's hero screen
 - Installed runtime DLL hash verification:
   `be7fb2e8a715b3abaa80eee4d6f24b6e19279c5c1dd9c624f620be396b3dab2d`
-- Transparent Pixie frame verification: 30x32 source at `(1,0)` in the 32x32
-  atlas and `(7,6)` in the 44x44 atlas, with special palette indices retained
+- Mirrored Pixie frame verification: 30x32 source at `(1,0)` in the 32x32
+  atlas and `(7,6)` in the 44x44 atlas, composited over `DiBoxBck.pcx`
+- Verification that both generated frames contain zero cyan-key index-0
+  pixels
+- Byte verification of Fire Magic/Wisdom, three Pixie creature IDs, and three
+  `22/25` starting-amount pairs in both executables
+- Byte verification of the random-map popup mirror argument

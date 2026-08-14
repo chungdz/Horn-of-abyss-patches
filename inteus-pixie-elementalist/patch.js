@@ -11,14 +11,17 @@ const HERO_ID = 140;
 const HERO_NAME = "Inteus";
 const SPECIALTY_OFFSET = 0x279a00;
 const HERO_DATA_OFFSET = 0x27d020;
+const ARMY_AMOUNTS_OFFSET = HERO_DATA_OFFSET + 0x44;
 const SPECIALTY_DISPLAY_POINTER_OFFSET = 0xe0d89;
 const SPECIALTY_DISPLAY_STRING_OFFSET = 0x1ff5d2;
 const HD_HOTA_SPECIALTY_FRAME_OFFSET = 0x234d86;
 const HD_HOTA_SPECIALTY_POINTER_OFFSET = 0x234d8b;
+const HD_HOTA_SPECIALTY_MIRROR_OFFSET = 0x234d83;
 const HD_HOTA_SPECIALTY_POSITION_OFFSET = 0x234d9a;
 const HD_HOTA_SPECIALTY_LAYOUT_OFFSET = 0x234dc3;
 const HD_HOTA_SPECIALTY_RESOURCE_OFFSET = 0x29ee3c;
 const PIXIE_PORTRAIT_FRAME = 120;
+const DIALOG_BACKGROUND_RESOURCE = "DiBoxBck.pcx";
 const SPECIALTY_DISPLAY_RESOURCE = "IX44.def";
 const SPECIALTY_DISPLAY_FRAME_NAME = "NYX44PIX.PCX";
 const SPECIALTY_ICON_RESOURCES = [
@@ -42,6 +45,7 @@ const FILES = {
   language: path.join("Data", "HotA_lng.lod"),
   spritesBase: path.join("Data", "H3sprite.lod"),
   spritesExpansion: path.join("Data", "H3ab_spr.lod"),
+  bitmap: path.join("Data", "H3bitmap.lod"),
   displayResource: path.join("Data", SPECIALTY_DISPLAY_RESOURCE),
   hdFilesIni: path.join(
     "_HD3_Data",
@@ -132,6 +136,15 @@ const V109_HASHES = {
   [FILES.hdHotA]: "a7c7b57374dc1375c7a71a723b8d1fbe459553becbc797b5a2626e78f759a26a",
 };
 
+const V140_HASHES = {
+  [FILES.exe]: "3b572e05ea301cd9cee2cd4dba2867b3d550643e67fbde4d278385b30e68119b",
+  [FILES.hdExe]: "fe730562680a294d811b6eae2cc8a85ac898feff6fa98d49ce8ee950dc116eb2",
+  [FILES.hdHotA]: "237010df2bd602f394c1e8c0d278bb6ef53ad814c8b8977bf48afa3115af76ef",
+  [FILES.language]: "a12b33ded76ef09b03cf750f1c869269ceb1d1e1d1206b9ff56c44f83689ed54",
+  [FILES.spritesBase]: "11e0289441411fc6df098d050f6632868fe95e582ca8e36b0c9c7e367ac11057",
+  [FILES.spritesExpansion]: "59b0e9e7af295817d6ada2b6482fa5b77b085a605d638423b2b6a0e99c1fda38",
+};
+
 const ORIGINAL_SPECIALTY = Buffer.from(
   "030000002b0000000000000000000000000000000000000000000000",
   "hex",
@@ -145,8 +158,17 @@ const ORIGINAL_HERO = Buffer.from(
   "00000000070000001100000007000000010000000e00000001000000010000002b000000760000007000000073000000",
   "hex",
 );
-const PATCHED_HERO = Buffer.from(
+const LEGACY_PATCHED_HERO = Buffer.from(
   "0000000007000000110000000e000000010000001300000001000000010000000d000000760000007000000073000000",
+  "hex",
+);
+const PATCHED_HERO = Buffer.from(
+  "0000000007000000110000000e000000010000000700000001000000010000000d000000760000007600000076000000",
+  "hex",
+);
+const ORIGINAL_ARMY_AMOUNTS = Buffer.alloc(24);
+const PATCHED_ARMY_AMOUNTS = Buffer.from(
+  "160000001900000016000000190000001600000019000000",
   "hex",
 );
 
@@ -172,6 +194,8 @@ const ORIGINAL_HD_HOTA_SPECIALTY_FRAME = Buffer.from("8b450850", "hex");
 const PATCHED_HD_HOTA_SPECIALTY_FRAME = Buffer.from("6a789090", "hex");
 const ORIGINAL_HD_HOTA_SPECIALTY_POINTER = Buffer.from("3c042a01", "hex");
 const PATCHED_HD_HOTA_SPECIALTY_POINTER = Buffer.from("ac6d2901", "hex");
+const ORIGINAL_HD_HOTA_SPECIALTY_MIRROR = Buffer.from([0x00]);
+const PATCHED_HD_HOTA_SPECIALTY_MIRROR = Buffer.from([0x01]);
 const ORIGINAL_HD_HOTA_SPECIALTY_POSITION = Buffer.from("6a126a48", "hex");
 const HIGH_HD_HOTA_SPECIALTY_POSITION = Buffer.from("6a186a4e", "hex");
 const RIGHT_HD_HOTA_SPECIALTY_POSITION = Buffer.from("6a1c6a4e", "hex");
@@ -234,10 +258,16 @@ function equalAt(buffer, offset, expected) {
 function executableState(buffer) {
   const recordsOriginal =
     equalAt(buffer, SPECIALTY_OFFSET, ORIGINAL_SPECIALTY) &&
-    equalAt(buffer, HERO_DATA_OFFSET, ORIGINAL_HERO);
+    equalAt(buffer, HERO_DATA_OFFSET, ORIGINAL_HERO) &&
+    equalAt(buffer, ARMY_AMOUNTS_OFFSET, ORIGINAL_ARMY_AMOUNTS);
+  const recordsLegacy =
+    equalAt(buffer, SPECIALTY_OFFSET, PATCHED_SPECIALTY) &&
+    equalAt(buffer, HERO_DATA_OFFSET, LEGACY_PATCHED_HERO) &&
+    equalAt(buffer, ARMY_AMOUNTS_OFFSET, ORIGINAL_ARMY_AMOUNTS);
   const recordsPatched =
     equalAt(buffer, SPECIALTY_OFFSET, PATCHED_SPECIALTY) &&
-    equalAt(buffer, HERO_DATA_OFFSET, PATCHED_HERO);
+    equalAt(buffer, HERO_DATA_OFFSET, PATCHED_HERO) &&
+    equalAt(buffer, ARMY_AMOUNTS_OFFSET, PATCHED_ARMY_AMOUNTS);
   const displayOriginal =
     equalAt(
       buffer,
@@ -264,7 +294,10 @@ function executableState(buffer) {
   if (recordsOriginal && displayOriginal) {
     return "original";
   }
-  if (recordsPatched && displayOriginal) {
+  if ((recordsLegacy || recordsPatched) && displayOriginal) {
+    return "legacy";
+  }
+  if (recordsLegacy && displayPatched) {
     return "legacy";
   }
   if (recordsPatched && displayPatched) {
@@ -296,6 +329,16 @@ function hdHotAState(buffer) {
       HD_HOTA_SPECIALTY_POINTER_OFFSET,
       PATCHED_HD_HOTA_SPECIALTY_POINTER,
     );
+  const mirrorOriginal = equalAt(
+    buffer,
+    HD_HOTA_SPECIALTY_MIRROR_OFFSET,
+    ORIGINAL_HD_HOTA_SPECIALTY_MIRROR,
+  );
+  const mirrorPatched = equalAt(
+    buffer,
+    HD_HOTA_SPECIALTY_MIRROR_OFFSET,
+    PATCHED_HD_HOTA_SPECIALTY_MIRROR,
+  );
   const resourceOriginal =
     equalAt(
       buffer,
@@ -348,28 +391,85 @@ function hdHotAState(buffer) {
     PATCHED_HD_HOTA_SPECIALTY_LAYOUT,
   );
 
-  if (codeOriginal && resourceOriginal && positionOriginal && layoutOriginal) {
+  if (
+    codeOriginal &&
+    resourceOriginal &&
+    positionOriginal &&
+    layoutOriginal &&
+    mirrorOriginal
+  ) {
     return "original";
   }
-  if (codeOriginal && resourceLegacy && positionOriginal && layoutOriginal) {
+  if (
+    codeOriginal &&
+    resourceLegacy &&
+    positionOriginal &&
+    layoutOriginal &&
+    mirrorOriginal
+  ) {
     return "legacy";
   }
-  if (codePatched && resourceOriginal && positionOriginal && layoutOriginal) {
+  if (
+    codePatched &&
+    resourceOriginal &&
+    positionOriginal &&
+    layoutOriginal &&
+    mirrorOriginal
+  ) {
     return "uncentered";
   }
-  if (codePatched && resourceOriginal && positionHigh && layoutOriginal) {
+  if (
+    codePatched &&
+    resourceOriginal &&
+    positionHigh &&
+    layoutOriginal &&
+    mirrorOriginal
+  ) {
     return "high";
   }
-  if (codePatched && resourceOriginal && positionRight && layoutOriginal) {
+  if (
+    codePatched &&
+    resourceOriginal &&
+    positionRight &&
+    layoutOriginal &&
+    mirrorOriginal
+  ) {
     return "right";
   }
-  if (codePatched && resourceOriginal && positionCorner && layoutOriginal) {
+  if (
+    codePatched &&
+    resourceOriginal &&
+    positionCorner &&
+    layoutOriginal &&
+    mirrorOriginal
+  ) {
     return "corner";
   }
-  if (codePatched && resourceOriginal && positionPatched && layoutLegacy) {
+  if (
+    codePatched &&
+    resourceOriginal &&
+    positionPatched &&
+    layoutLegacy &&
+    mirrorOriginal
+  ) {
     return "legacy-layout";
   }
-  if (codePatched && resourceOriginal && positionPatched && layoutPatched) {
+  if (
+    codePatched &&
+    resourceOriginal &&
+    positionPatched &&
+    layoutPatched &&
+    mirrorOriginal
+  ) {
+    return "legacy-mirror";
+  }
+  if (
+    codePatched &&
+    resourceOriginal &&
+    positionPatched &&
+    layoutPatched &&
+    mirrorPatched
+  ) {
     return "patched";
   }
   return "unknown";
@@ -596,7 +696,34 @@ function paletteColor(definition, paletteIndex) {
   ];
 }
 
-function pixieSpecialtyPixels(pixieIcons, specialtyIcons, iconSize) {
+function decodeLodPcx(pcx) {
+  if (pcx.length < 12 + 768) {
+    throw new Error("LOD-PCX resource is truncated.");
+  }
+  const pixelSize = pcx.readUInt32LE(0);
+  const width = pcx.readUInt32LE(4);
+  const height = pcx.readUInt32LE(8);
+  if (
+    pixelSize !== width * height ||
+    pcx.length !== 12 + pixelSize + 768
+  ) {
+    throw new Error(`Unexpected LOD-PCX layout: ${width}x${height}.`);
+  }
+  return {
+    height,
+    palette: pcx.subarray(12 + pixelSize),
+    pixels: pcx.subarray(12, 12 + pixelSize),
+    width,
+  };
+}
+
+function pixieSpecialtyPixels(
+  pixieIcons,
+  specialtyIcons,
+  dialogBackground,
+  iconSize,
+  legacyTransparent = false,
+) {
   const source = decodeDefFrame(pixieIcons, PIXIE_PORTRAIT_FRAME);
   if (source.width !== 30 || source.height !== 32) {
     throw new Error(
@@ -612,33 +739,79 @@ function pixieSpecialtyPixels(pixieIcons, specialtyIcons, iconSize) {
   const targetPalette = Array.from({ length: 256 }, (_, index) =>
     paletteColor(specialtyIcons, index),
   );
-  const paletteMap = Array.from({ length: 256 }, (_, sourceIndex) => {
-    if (sourceIndex < 8) {
-      return sourceIndex;
-    }
-    const sourceColor = sourcePalette[sourceIndex];
+  const background = decodeLodPcx(dialogBackground);
+  if (background.width !== 256 || background.height !== 256) {
+    throw new Error(
+      `Unexpected dialog background dimensions: ${background.width}x${background.height}.`,
+    );
+  }
+  const backgroundPalette = Array.from({ length: 256 }, (_, index) => {
+    const offset = index * 3;
+    return [
+      background.palette[offset],
+      background.palette[offset + 1],
+      background.palette[offset + 2],
+    ];
+  });
+  const nearestTargetIndex = (color) => {
     let bestIndex = 8;
     let bestDistance = Number.POSITIVE_INFINITY;
     for (let targetIndex = 8; targetIndex < 256; targetIndex += 1) {
       const targetColor = targetPalette[targetIndex];
       const distance =
-        (sourceColor[0] - targetColor[0]) ** 2 +
-        (sourceColor[1] - targetColor[1]) ** 2 +
-        (sourceColor[2] - targetColor[2]) ** 2;
+        (color[0] - targetColor[0]) ** 2 +
+        (color[1] - targetColor[1]) ** 2 +
+        (color[2] - targetColor[2]) ** 2;
       if (distance < bestDistance) {
         bestDistance = distance;
         bestIndex = targetIndex;
       }
     }
     return bestIndex;
+  };
+  const paletteMap = Array.from({ length: 256 }, (_, sourceIndex) => {
+    if (sourceIndex < 8) {
+      return sourceIndex;
+    }
+    return nearestTargetIndex(sourcePalette[sourceIndex]);
   });
-
-  const pixels = Buffer.alloc(iconSize * iconSize, 0);
   const left = Math.floor((iconSize - source.width) / 2);
   const top = Math.floor((iconSize - source.height) / 2);
+  if (legacyTransparent) {
+    const pixels = Buffer.alloc(iconSize * iconSize, 0);
+    for (let y = 0; y < source.height; y += 1) {
+      for (let x = 0; x < source.width; x += 1) {
+        const sourceIndex = source.pixels[y * source.width + x];
+        pixels[(top + y) * iconSize + left + x] =
+          paletteMap[sourceIndex];
+      }
+    }
+    return pixels;
+  }
+  const backgroundMap = backgroundPalette.map(nearestTargetIndex);
+
+  const pixels = Buffer.alloc(iconSize * iconSize);
+  const textureLeft = 84;
+  const textureTop = 0;
+  for (let y = 0; y < iconSize; y += 1) {
+    for (let x = 0; x < iconSize; x += 1) {
+      const backgroundIndex =
+        background.pixels[
+          ((textureTop + y) % background.height) * background.width +
+          ((textureLeft + x) % background.width)
+        ];
+      pixels[y * iconSize + x] = backgroundMap[backgroundIndex];
+    }
+  }
   for (let y = 0; y < source.height; y += 1) {
     for (let x = 0; x < source.width; x += 1) {
-      const sourceIndex = source.pixels[y * source.width + x];
+      const sourceIndex =
+        source.pixels[
+          y * source.width + (source.width - 1 - x)
+        ];
+      if (sourceIndex === 0) {
+        continue;
+      }
       pixels[(top + y) * iconSize + left + x] = paletteMap[sourceIndex];
     }
   }
@@ -646,7 +819,12 @@ function pixieSpecialtyPixels(pixieIcons, specialtyIcons, iconSize) {
   return pixels;
 }
 
-function patchedSpecialtyIcons(originalIcons, pixieIcons, resource) {
+function patchedSpecialtyIcons(
+  originalIcons,
+  pixieIcons,
+  dialogBackground,
+  resource,
+) {
   const icon = findDefFrame(originalIcons, HERO_ID);
   if (
     icon.name.toLowerCase() !== resource.expectedFrameName ||
@@ -661,6 +839,7 @@ function patchedSpecialtyIcons(originalIcons, pixieIcons, resource) {
   const pixels = pixieSpecialtyPixels(
     pixieIcons,
     originalIcons,
+    dialogBackground,
     resource.size,
   );
   const frame = Buffer.alloc(32 + pixels.length);
@@ -677,7 +856,7 @@ function patchedSpecialtyIcons(originalIcons, pixieIcons, resource) {
   return Buffer.concat([updated, frame]);
 }
 
-function patchedSpriteArchive(originalArchive) {
+function patchedSpriteArchive(originalArchive, dialogBackground) {
   const pixieIcons = extractLodEntry(originalArchive, "CPRSMALL.def");
   let archive = originalArchive;
   for (const resource of SPECIALTY_ICON_RESOURCES) {
@@ -688,6 +867,7 @@ function patchedSpriteArchive(originalArchive) {
       patchedSpecialtyIcons(
         specialtyIcons,
         pixieIcons,
+        dialogBackground,
         resource,
       ),
     );
@@ -710,27 +890,43 @@ function registeredDisplayResource(archive) {
   );
 }
 
-function spriteState(archive, originalHash) {
+function spriteState(archive, originalHash, dialogBackground) {
   if (hash(archive) === originalHash) {
     return "original";
   }
   try {
     const pixieIcons = extractLodEntry(archive, "CPRSMALL.def");
+    let imageState = "patched";
     for (const resource of SPECIALTY_ICON_RESOURCES) {
       const specialtyIcons = extractLodEntry(archive, resource.name);
       const expected = pixieSpecialtyPixels(
         pixieIcons,
         specialtyIcons,
+        dialogBackground,
         resource.size,
+      );
+      const legacyExpected = pixieSpecialtyPixels(
+        pixieIcons,
+        specialtyIcons,
+        dialogBackground,
+        resource.size,
+        true,
       );
       const actual = decodeDefFrame(specialtyIcons, HERO_ID);
       if (
         actual.width !== resource.size ||
-        actual.height !== resource.size ||
-        !actual.pixels.equals(expected)
+        actual.height !== resource.size
       ) {
         return "unknown";
       }
+      if (actual.pixels.equals(expected)) {
+        continue;
+      }
+      if (actual.pixels.equals(legacyExpected)) {
+        imageState = "legacy";
+        continue;
+      }
+      return "unknown";
     }
     const displayEntry = findLodEntry(
       archive,
@@ -752,7 +948,7 @@ function spriteState(archive, originalHash) {
     ) {
       return "unknown";
     }
-    return "patched";
+    return imageState;
   } catch {
     return "unknown";
   }
@@ -980,7 +1176,14 @@ function inspect(gameDir) {
   const language = readGameFile(gameDir, FILES.language);
   const spritesBase = readGameFile(gameDir, FILES.spritesBase);
   const spritesExpansion = readGameFile(gameDir, FILES.spritesExpansion);
+  const bitmap = readGameFile(gameDir, FILES.bitmap);
+  const dialogBackground = extractLodEntry(
+    bitmap,
+    DIALOG_BACKGROUND_RESOURCE,
+  );
   return {
+    bitmap,
+    dialogBackground,
     exe,
     hdExe,
     hdHotA,
@@ -995,10 +1198,12 @@ function inspect(gameDir) {
       [FILES.spritesBase]: spriteState(
         spritesBase,
         ORIGINAL_HASHES[FILES.spritesBase],
+        dialogBackground,
       ),
       [FILES.spritesExpansion]: spriteState(
         spritesExpansion,
         ORIGINAL_HASHES[FILES.spritesExpansion],
+        dialogBackground,
       ),
       [HD_OVERRIDE_STATE_KEY]: hdOverrideState(gameDir, spritesExpansion),
       [DISPLAY_OVERRIDE_STATE_KEY]: displayOverrideState(
@@ -1149,6 +1354,16 @@ function apply(gameDir) {
     ...v108States,
     [FILES.hdHotA]: "right",
   };
+  const v140States = {
+    [FILES.exe]: "legacy",
+    [FILES.hdExe]: "legacy",
+    [FILES.hdHotA]: "legacy-mirror",
+    [FILES.language]: "patched",
+    [FILES.spritesBase]: "legacy",
+    [FILES.spritesExpansion]: "legacy",
+    [HD_OVERRIDE_STATE_KEY]: "patched",
+    [DISPLAY_OVERRIDE_STATE_KEY]: "patched",
+  };
   const isOriginal = hasStates(inspected.states, originalStates);
   const isV101 = hasStates(inspected.states, v101States);
   const isV102 = hasStates(inspected.states, v102States);
@@ -1159,6 +1374,7 @@ function apply(gameDir) {
   const isV107 = hasStates(inspected.states, v107States);
   const isV108 = hasStates(inspected.states, v108States);
   const isV109 = hasStates(inspected.states, v109States);
+  const isV140 = hasStates(inspected.states, v140States);
   if (
     !isOriginal &&
     !isV101 &&
@@ -1169,7 +1385,8 @@ function apply(gameDir) {
     !isV106 &&
     !isV107 &&
     !isV108 &&
-    !isV109
+    !isV109 &&
+    !isV140
   ) {
     throw new Error(
       `The installation is in a mixed or unknown state:\n${JSON.stringify(inspected.states, null, 2)}`,
@@ -1193,6 +1410,8 @@ function apply(gameDir) {
         ? V108_HASHES
       : isV109
         ? V109_HASHES
+      : isV140
+        ? V140_HASHES
         : V102_HASHES,
   );
 
@@ -1201,6 +1420,7 @@ function apply(gameDir) {
     const updated = Buffer.from(buffer);
     PATCHED_SPECIALTY.copy(updated, SPECIALTY_OFFSET);
     PATCHED_HERO.copy(updated, HERO_DATA_OFFSET);
+    PATCHED_ARMY_AMOUNTS.copy(updated, ARMY_AMOUNTS_OFFSET);
     PATCHED_DISPLAY_POINTER.copy(
       updated,
       SPECIALTY_DISPLAY_POINTER_OFFSET,
@@ -1222,6 +1442,10 @@ function apply(gameDir) {
   PATCHED_HD_HOTA_SPECIALTY_POINTER.copy(
     patchedHdHotA,
     HD_HOTA_SPECIALTY_POINTER_OFFSET,
+  );
+  PATCHED_HD_HOTA_SPECIALTY_MIRROR.copy(
+    patchedHdHotA,
+    HD_HOTA_SPECIALTY_MIRROR_OFFSET,
   );
   PATCHED_HD_HOTA_SPECIALTY_POSITION.copy(
     patchedHdHotA,
@@ -1249,12 +1473,12 @@ function apply(gameDir) {
     if (inspected.states[relativePath] === "original") {
       fs.writeFileSync(
         path.join(gameDir, relativePath),
-        patchedSpriteArchive(archive),
+        patchedSpriteArchive(archive, inspected.dialogBackground),
       );
     } else if (inspected.states[relativePath] === "legacy") {
       fs.writeFileSync(
         path.join(gameDir, relativePath),
-        registeredDisplayResource(archive),
+        patchedSpriteArchive(archive, inspected.dialogBackground),
       );
     }
   }
