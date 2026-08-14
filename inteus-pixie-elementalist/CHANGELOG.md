@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.6.1 - 2026-08-14
+
+- Record in-game confirmation that all three Nyx starting stacks use the
+  `22-25 Pixies` range.
+- Put Basic Wisdom in the first secondary-skill slot and Basic Fire Magic in
+  the second slot.
+- Correct Nyx's biography to use feminine pronouns.
+- Guard upgrades from the complete 1.6.0 installation.
+
 ## 1.6.0 - 2026-08-14
 
 - Correct the authoritative `HOTRAITS.TXT` row for Nyx to three identical

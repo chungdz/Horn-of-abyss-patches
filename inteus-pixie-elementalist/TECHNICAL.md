@@ -7,7 +7,7 @@
 - Hero ID: 140, zero-based
 - Existing class slot: Elementalist
 
-Using an existing Elementalist slot is required for Inteus to remain in the
+Using an existing Elementalist slot is required for Nyx to remain in the
 Conflux random-map starting-hero selector.
 
 ## Supported Original Hashes
@@ -46,8 +46,8 @@ the upgraded Sprite. No custom combat formula is injected.
 
 At file offset `0x27D020`, the hero record changes:
 
-- Basic Wisdom to Basic Fire Magic, secondary skill ID 14
-- Basic Fire Magic to Basic Wisdom, secondary skill ID 7
+- First skill: Basic Wisdom, secondary skill ID 7
+- Second skill: Basic Fire Magic, secondary skill ID 14
 - Starting spell 43 (Bloodlust) to spell 13 (Fire Wall)
 - All three starting creature IDs to Pixie, creature ID 118
 
@@ -361,5 +361,9 @@ probe later showed that loader rewriting was unnecessary.
 - Extraction and exact field verification of the authoritative
   `HOTRAITS.TXT` row:
   `Nyx, 22, 25, Pixies, 22, 25, Pixies, 22, 25, Pixies`
+- In-game confirmation of all three `22-25 Pixies` starting ranges
+- Byte verification that Wisdom occupies the first skill slot and Fire Magic
+  the second
+- Text verification that Nyx's biography uses feminine pronouns
 - Byte verification that the random-map popup uses native `UN44.def`,
   selected-hero frame, position, mirror, and layout arguments

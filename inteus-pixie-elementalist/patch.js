@@ -155,6 +155,15 @@ const V150_HASHES = {
   [FILES.spritesExpansion]: "9746edbc6f2fbf3aeaab623bfea8a70c111c704ccb111cd816592db1f6b72455",
 };
 
+const V160_HASHES = {
+  [FILES.exe]: "9e5074adfb1894e29504890059c149ad2c02611edc7c3bb9b1628fc98256b49d",
+  [FILES.hdExe]: "bf05670d1f4da4b7cc209bf332e84df7ca3073370926845dd3e6dead16f4797e",
+  [FILES.hdHotA]: "cd64ab03e2f821ab1a62668ca9f2550cb8b6069eb1ab94e82f390e5a5f268cfc",
+  [FILES.language]: "cdb7778b49e3a8faa547878df7e8e6fdcd36f0f5750d557f8af7abc67203ab10",
+  [FILES.spritesBase]: "72e36d6f4bcb64707654f89cc67d519d63c210e89dba3aad6199e87336f4f9c5",
+  [FILES.spritesExpansion]: "9746edbc6f2fbf3aeaab623bfea8a70c111c704ccb111cd816592db1f6b72455",
+};
+
 const ORIGINAL_SPECIALTY = Buffer.from(
   "030000002b0000000000000000000000000000000000000000000000",
   "hex",
@@ -172,8 +181,12 @@ const LEGACY_PATCHED_HERO = Buffer.from(
   "0000000007000000110000000e000000010000001300000001000000010000000d000000760000007000000073000000",
   "hex",
 );
-const PATCHED_HERO = Buffer.from(
+const LEGACY_ORDERED_HERO = Buffer.from(
   "0000000007000000110000000e000000010000000700000001000000010000000d000000760000007600000076000000",
+  "hex",
+);
+const PATCHED_HERO = Buffer.from(
+  "00000000070000001100000007000000010000000e00000001000000010000000d000000760000007600000076000000",
   "hex",
 );
 const ORIGINAL_ARMY_AMOUNTS = Buffer.alloc(24);
@@ -262,8 +275,10 @@ const PATCHED_HERO_TRAITS_FIELDS = [
 ];
 const LEGACY_BIOGRAPHY =
   "Inteus's command of fire drew the smallest spirits of the Conflux to his side. He shelters Pixies and Sprites behind walls of living flame, training them to strike with speed and surprising strength.";
-const BIOGRAPHY =
+const MASCULINE_BIOGRAPHY =
   "Nyx's command of fire drew the smallest spirits of the Conflux to his side. He shelters Pixies and Sprites behind walls of living flame, training them to strike with speed and surprising strength.";
+const BIOGRAPHY =
+  "Nyx's command of fire drew the smallest spirits of the Conflux to her side. She shelters Pixies and Sprites behind walls of living flame, training them to strike with speed and surprising strength.";
 
 function fail(message) {
   console.error(`Error: ${message}`);
@@ -306,6 +321,10 @@ function executableState(buffer) {
     equalAt(buffer, SPECIALTY_OFFSET, PATCHED_SPECIALTY) &&
     equalAt(buffer, HERO_DATA_OFFSET, LEGACY_PATCHED_HERO) &&
     equalAt(buffer, ARMY_AMOUNTS_OFFSET, ORIGINAL_ARMY_AMOUNTS);
+  const recordsLegacyOrdered =
+    equalAt(buffer, SPECIALTY_OFFSET, PATCHED_SPECIALTY) &&
+    equalAt(buffer, HERO_DATA_OFFSET, LEGACY_ORDERED_HERO) &&
+    equalAt(buffer, ARMY_AMOUNTS_OFFSET, PATCHED_ARMY_AMOUNTS);
   const recordsPatched =
     equalAt(buffer, SPECIALTY_OFFSET, PATCHED_SPECIALTY) &&
     equalAt(buffer, HERO_DATA_OFFSET, PATCHED_HERO) &&
@@ -336,10 +355,13 @@ function executableState(buffer) {
   if (recordsOriginal && displayOriginal) {
     return "original";
   }
-  if ((recordsLegacy || recordsPatched) && displayOriginal) {
+  if (
+    (recordsLegacy || recordsLegacyOrdered || recordsPatched) &&
+    displayOriginal
+  ) {
     return "legacy";
   }
-  if (recordsLegacy && displayPatched) {
+  if ((recordsLegacy || recordsLegacyOrdered) && displayPatched) {
     return "legacy";
   }
   if (recordsPatched && displayPatched) {
@@ -1096,6 +1118,7 @@ function patchedLanguageArchive(originalArchive) {
     (
       !heroBios[HERO_ID].startsWith("At an early age, Inteus' mastery") &&
       heroBios[HERO_ID] !== LEGACY_BIOGRAPHY &&
+      heroBios[HERO_ID] !== MASCULINE_BIOGRAPHY &&
       heroBios[HERO_ID] !== BIOGRAPHY
     )
   ) {
@@ -1179,8 +1202,15 @@ function languageState(archive) {
     }
     if (
       specialtyPatched &&
-      [LEGACY_BIOGRAPHY, BIOGRAPHY].includes(heroBios[HERO_ID]) &&
-      traitsLegacy
+      (
+        (
+          [LEGACY_BIOGRAPHY, MASCULINE_BIOGRAPHY].includes(
+            heroBios[HERO_ID],
+          ) &&
+          (traitsLegacy || traitsPatched)
+        ) ||
+        (heroBios[HERO_ID] === BIOGRAPHY && traitsLegacy)
+      )
     ) {
       return "legacy";
     }
@@ -1498,6 +1528,16 @@ function apply(gameDir) {
     [HD_OVERRIDE_STATE_KEY]: "patched",
     [DISPLAY_OVERRIDE_STATE_KEY]: "patched",
   };
+  const v160States = {
+    [FILES.exe]: "legacy",
+    [FILES.hdExe]: "legacy",
+    [FILES.hdHotA]: "patched",
+    [FILES.language]: "legacy",
+    [FILES.spritesBase]: "patched",
+    [FILES.spritesExpansion]: "patched",
+    [HD_OVERRIDE_STATE_KEY]: "patched",
+    [DISPLAY_OVERRIDE_STATE_KEY]: "patched",
+  };
   const isOriginal = hasStates(inspected.states, originalStates);
   const isV101 = hasStates(inspected.states, v101States);
   const isV102 = hasStates(inspected.states, v102States);
@@ -1510,6 +1550,7 @@ function apply(gameDir) {
   const isV109 = hasStates(inspected.states, v109States);
   const isV140 = hasStates(inspected.states, v140States);
   const isV150 = hasStates(inspected.states, v150States);
+  const isV160 = hasStates(inspected.states, v160States);
   if (
     !isOriginal &&
     !isV101 &&
@@ -1522,7 +1563,8 @@ function apply(gameDir) {
     !isV108 &&
     !isV109 &&
     !isV140 &&
-    !isV150
+    !isV150 &&
+    !isV160
   ) {
     throw new Error(
       `The installation is in a mixed or unknown state:\n${JSON.stringify(inspected.states, null, 2)}`,
@@ -1550,6 +1592,8 @@ function apply(gameDir) {
         ? V140_HASHES
       : isV150
         ? V150_HASHES
+      : isV160
+        ? V160_HASHES
         : V102_HASHES,
   );
 

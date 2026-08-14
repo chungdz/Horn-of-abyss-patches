@@ -65,8 +65,12 @@ const legacyHeroRecord = Buffer.from(
   "0000000007000000110000000e000000010000001300000001000000010000000d000000760000007000000073000000",
   "hex",
 );
-const finalHeroRecord = Buffer.from(
+const legacyOrderedHeroRecord = Buffer.from(
   "0000000007000000110000000e000000010000000700000001000000010000000d000000760000007600000076000000",
+  "hex",
+);
+const finalHeroRecord = Buffer.from(
+  "00000000070000001100000007000000010000000e00000001000000010000000d000000760000007600000076000000",
   "hex",
 );
 const emptyArmyAmounts = Buffer.alloc(24);
@@ -560,6 +564,7 @@ function patchExecutable(executable) {
   if (
     !heroRecord.equals(originalHeroRecord) &&
     !heroRecord.equals(legacyHeroRecord) &&
+    !heroRecord.equals(legacyOrderedHeroRecord) &&
     !heroRecord.equals(finalHeroRecord)
   ) {
     throw new Error("Unexpected Nyx hero record.");
@@ -675,13 +680,27 @@ function patchLanguage(archive) {
   }
   rows[index] = ["Nyx", ...finalFields].join("\t");
 
-  const bios = extractLodEntry(archive, "HeroBios.txt").toString("latin1");
-  const updatedBios = bios.replace(
-    "Inteus's command of fire",
-    "Nyx's command of fire",
-  );
+  const bioRows = extractLodEntry(archive, "HeroBios.txt")
+    .toString("latin1")
+    .split(/\r?\n/);
+  const legacyBiography =
+    "Inteus's command of fire drew the smallest spirits of the Conflux to his side. He shelters Pixies and Sprites behind walls of living flame, training them to strike with speed and surprising strength.";
+  const masculineBiography =
+    "Nyx's command of fire drew the smallest spirits of the Conflux to his side. He shelters Pixies and Sprites behind walls of living flame, training them to strike with speed and surprising strength.";
+  const finalBiography =
+    "Nyx's command of fire drew the smallest spirits of the Conflux to her side. She shelters Pixies and Sprites behind walls of living flame, training them to strike with speed and surprising strength.";
+  if (
+    ![
+      legacyBiography,
+      masculineBiography,
+      finalBiography,
+    ].includes(bioRows[140])
+  ) {
+    throw new Error("Unexpected Inteus/Nyx biography.");
+  }
+  bioRows[140] = finalBiography;
   const updatedTraits = Buffer.from(rows.join("\r\n"), "latin1");
-  const updatedBiography = Buffer.from(updatedBios, "latin1");
+  const updatedBiography = Buffer.from(bioRows.join("\r\n"), "latin1");
   let updated = archive;
   if (!extractLodEntry(updated, "HOTRAITS.TXT").equals(updatedTraits)) {
     updated = replaceLodEntry(updated, "HOTRAITS.TXT", updatedTraits);

@@ -1,9 +1,9 @@
 # Nyx Pixie Elementalist
 
-Version 1.6.0
+Version 1.6.1
 
 This patch replaces Inteus, hero ID 140, with Nyx in Horn of the Abyss 1.8.0.
-It uses Inteus's existing Elementalist slot, so he remains available in the
+It uses Inteus's existing Elementalist slot, so she remains available in the
 Conflux starting-hero selector for random maps.
 
 ## Patch Result
@@ -11,7 +11,7 @@ Conflux starting-hero selector for random maps.
 - Class: Elementalist
 - Specialty: Pixies and Sprites
 - Specialty effect: Speed +1 and Attack/Defense +10% per hero level, rounded up
-- Starting skills: Basic Fire Magic and Basic Wisdom
+- Starting skills: Basic Wisdom, then Basic Fire Magic
 - Starting spell: Fire Wall
 - Starting army: three stacks of 22-25 Pixies
 - Random-map Advanced Options specialty picture: Pixie
@@ -31,8 +31,8 @@ Standard specialty panels place a cyan placeholder underneath their original
 full-square artwork. A transparent Pixie therefore reveals cyan rather than
 the dialog beneath it. The patch mirrors the Pixie to face left and composites
 it over the game's native brown dialog texture. The generated frames contain
-no cyan-key pixels. Version 1.6.0's random-map image and corrected starting
-army still need an in-game check.
+no cyan-key pixels. The three `22-25 Pixies` stacks are confirmed in-game;
+the version 1.6.0 random-map image adjustment still needs an in-game check.
 
 ## Requirements
 
