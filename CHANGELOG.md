@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.2 - 2026-08-14
+
+- Patched Inteus's 32x32 and 44x44 specialty pictures in both sprite archives.
+- Added guarded in-place upgrades from version 1.0.1.
+- Preserved the exact pre-apply state in new backup manifests.
+
+## 1.0.1 - 2026-08-14
+
+- Added the 32x32 Pixie picture and targeted the expansion sprite archive.
+
 ## 1.0.0 - 2026-08-14
 
 - Reworked Inteus, hero ID 140, into a Pixie/Sprite Elementalist.
@@ -10,4 +20,3 @@
 - Replaced Inteus's Bloodlust specialty picture with a Pixie portrait.
 - Added checksum guards, timestamped backups, status reporting, and exact
   restoration.
-

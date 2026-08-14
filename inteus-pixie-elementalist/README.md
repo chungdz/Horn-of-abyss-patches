@@ -1,6 +1,6 @@
 # Inteus Pixie Elementalist
 
-Version 1.0.1
+Version 1.0.2
 
 This patch reworks Inteus, hero ID 140, in Horn of the Abyss 1.8.0.
 It uses Inteus's existing Elementalist slot, so he remains available in the
@@ -22,7 +22,7 @@ Conflux starting-hero selector for random maps.
 - The exact supported English game files listed in
   [TECHNICAL.md](TECHNICAL.md)
 - Node.js 18 or newer
-- Approximately 80 MB of free space for each backup
+- Approximately 100 MB of free space for each backup
 
 Use a separate HotA installation. All players in a multiplayer game must use
 identical game files.
@@ -67,8 +67,10 @@ The patch modifies:
 - `h3hota.exe`
 - `h3hota HD.exe`
 - `Data/HotA_lng.lod`
+- `Data/H3sprite.lod`
 - `Data/H3ab_spr.lod`
 
 No game files are distributed by this repository. The patcher derives the
-Pixie specialty pictures from the user's installed game resources.
-`Data/H3sprite.lod` is not modified.
+Pixie specialty pictures from the user's installed game resources. Both
+sprite archives are patched so the result does not depend on which copy the
+game or HD launcher resolves.

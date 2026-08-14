@@ -30,22 +30,33 @@ const FILES = {
   exe: "h3hota.exe",
   hdExe: "h3hota HD.exe",
   language: path.join("Data", "HotA_lng.lod"),
-  sprites: path.join("Data", "H3ab_spr.lod"),
+  spritesBase: path.join("Data", "H3sprite.lod"),
+  spritesExpansion: path.join("Data", "H3ab_spr.lod"),
 };
 
 const ORIGINAL_HASHES = {
   [FILES.exe]: "b5f2f793af0986050fb41df7209c25d861ae0f837af52bb3bd6864ba4de84f41",
   [FILES.hdExe]: "5aaab925f06cccf23bb09814767590a95b84a557eb33d244800520be4f1f18de",
   [FILES.language]: "f4ba08f4adfcfb3dcffdc8fa2063307ff2a6caa48212b11073ef43dc73d3047e",
-  [FILES.sprites]: "e0d5003742c8602827ef409966784483dece6eedde76aa2cfeee26cb12d25d67",
+  [FILES.spritesBase]: "57caf2c50573f33a0d91e4222e51d3a73c136d44decf59dde21cacad88fe5d66",
+  [FILES.spritesExpansion]: "e0d5003742c8602827ef409966784483dece6eedde76aa2cfeee26cb12d25d67",
 };
 
 const PATCHED_FILES = [
   FILES.exe,
   FILES.hdExe,
   FILES.language,
-  FILES.sprites,
+  FILES.spritesBase,
+  FILES.spritesExpansion,
 ];
+
+const V101_HASHES = {
+  [FILES.exe]: "c4d40880504228b26f5a341d579a553d3aeadc34a6b4c60fcbfec0fd39ca59f5",
+  [FILES.hdExe]: "2cf1a00a6fe774b0fdb82262d69f724f30e7e0cde6a849f57c843d00055d9975",
+  [FILES.language]: "529b294498002f8d49a42c50db89361097ed58edcb76e36418108cdfdf792671",
+  [FILES.spritesBase]: ORIGINAL_HASHES[FILES.spritesBase],
+  [FILES.spritesExpansion]: "789739587a20725d3dc2b16685b4c248eaa6e299a34ea20b15d2db342f9c13d8",
+};
 
 const ORIGINAL_SPECIALTY = Buffer.from(
   "030000002b0000000000000000000000000000000000000000000000",
@@ -415,8 +426,8 @@ function patchedSpriteArchive(originalArchive) {
   return archive;
 }
 
-function spriteState(archive) {
-  if (hash(archive) === ORIGINAL_HASHES[FILES.sprites]) {
+function spriteState(archive, originalHash) {
+  if (hash(archive) === originalHash) {
     return "original";
   }
   try {
@@ -567,37 +578,57 @@ function inspect(gameDir) {
   const exe = readGameFile(gameDir, FILES.exe);
   const hdExe = readGameFile(gameDir, FILES.hdExe);
   const language = readGameFile(gameDir, FILES.language);
-  const sprites = readGameFile(gameDir, FILES.sprites);
+  const spritesBase = readGameFile(gameDir, FILES.spritesBase);
+  const spritesExpansion = readGameFile(gameDir, FILES.spritesExpansion);
   return {
     exe,
     hdExe,
     language,
-    sprites,
+    spritesBase,
+    spritesExpansion,
     states: {
       [FILES.exe]: executableState(exe),
       [FILES.hdExe]: executableState(hdExe),
       [FILES.language]: languageState(language),
-      [FILES.sprites]: spriteState(sprites),
+      [FILES.spritesBase]: spriteState(
+        spritesBase,
+        ORIGINAL_HASHES[FILES.spritesBase],
+      ),
+      [FILES.spritesExpansion]: spriteState(
+        spritesExpansion,
+        ORIGINAL_HASHES[FILES.spritesExpansion],
+      ),
     },
   };
 }
 
-function verifyOriginalHashes(inspected) {
-  const buffers = {
+function inspectedBuffers(inspected) {
+  return {
     [FILES.exe]: inspected.exe,
     [FILES.hdExe]: inspected.hdExe,
     [FILES.language]: inspected.language,
-    [FILES.sprites]: inspected.sprites,
+    [FILES.spritesBase]: inspected.spritesBase,
+    [FILES.spritesExpansion]: inspected.spritesExpansion,
   };
+}
+
+function verifyHashes(inspected, expectedHashes) {
+  const buffers = inspectedBuffers(inspected);
   for (const relativePath of PATCHED_FILES) {
     const actual = hash(buffers[relativePath]);
-    if (actual !== ORIGINAL_HASHES[relativePath]) {
+    if (actual !== expectedHashes[relativePath]) {
       throw new Error(
         `${relativePath} does not match the supported HotA 1.8.0 build.\n` +
-          `Expected ${ORIGINAL_HASHES[relativePath]}\nActual   ${actual}`,
+          `Expected ${expectedHashes[relativePath]}\nActual   ${actual}`,
       );
     }
   }
+}
+
+function hasStates(actual, expected) {
+  return PATCHED_FILES.every(
+    (relativePath) => actual[relativePath] === expected[relativePath],
+  );
 }
 
 function timestamp() {
@@ -608,7 +639,7 @@ function timestamp() {
     .replace("T", "-");
 }
 
-function createBackup(gameDir) {
+function createBackup(gameDir, states) {
   const backupDir = path.join(
     gameDir,
     "ConfluxElementalistPatch",
@@ -622,6 +653,7 @@ function createBackup(gameDir) {
     hotaVersion: "1.8.0",
     createdAt: new Date().toISOString(),
     files: {},
+    states,
   };
 
   for (const relativePath of PATCHED_FILES) {
@@ -645,14 +677,26 @@ function apply(gameDir) {
     console.log(`${HERO_NAME} is already patched as a Pixie Elementalist.`);
     return;
   }
-  if (!states.every((state) => state === "original")) {
+  const originalStates = Object.fromEntries(
+    PATCHED_FILES.map((relativePath) => [relativePath, "original"]),
+  );
+  const v101States = {
+    [FILES.exe]: "patched",
+    [FILES.hdExe]: "patched",
+    [FILES.language]: "patched",
+    [FILES.spritesBase]: "original",
+    [FILES.spritesExpansion]: "patched",
+  };
+  const isOriginal = hasStates(inspected.states, originalStates);
+  const isV101 = hasStates(inspected.states, v101States);
+  if (!isOriginal && !isV101) {
     throw new Error(
       `The installation is in a mixed or unknown state:\n${JSON.stringify(inspected.states, null, 2)}`,
     );
   }
-  verifyOriginalHashes(inspected);
+  verifyHashes(inspected, isOriginal ? ORIGINAL_HASHES : V101_HASHES);
 
-  const backupDir = createBackup(gameDir);
+  const backupDir = createBackup(gameDir, inspected.states);
   const patchExecutable = (buffer) => {
     const updated = Buffer.from(buffer);
     PATCHED_SPECIALTY.copy(updated, SPECIALTY_OFFSET);
@@ -662,14 +706,23 @@ function apply(gameDir) {
 
   fs.writeFileSync(path.join(gameDir, FILES.exe), patchExecutable(inspected.exe));
   fs.writeFileSync(path.join(gameDir, FILES.hdExe), patchExecutable(inspected.hdExe));
-  fs.writeFileSync(
-    path.join(gameDir, FILES.language),
-    patchedLanguageArchive(inspected.language),
-  );
-  fs.writeFileSync(
-    path.join(gameDir, FILES.sprites),
-    patchedSpriteArchive(inspected.sprites),
-  );
+  if (inspected.states[FILES.language] === "original") {
+    fs.writeFileSync(
+      path.join(gameDir, FILES.language),
+      patchedLanguageArchive(inspected.language),
+    );
+  }
+  for (const [relativePath, archive] of [
+    [FILES.spritesBase, inspected.spritesBase],
+    [FILES.spritesExpansion, inspected.spritesExpansion],
+  ]) {
+    if (inspected.states[relativePath] === "original") {
+      fs.writeFileSync(
+        path.join(gameDir, relativePath),
+        patchedSpriteArchive(archive),
+      );
+    }
+  }
 
   const verified = inspect(gameDir);
   if (!Object.values(verified.states).every((state) => state === "patched")) {
@@ -711,7 +764,7 @@ function restore(gameDir, requestedBackup) {
   for (const relativePath of PATCHED_FILES) {
     if (!manifest.files[relativePath]) {
       throw new Error(
-        `Backup predates the specialty-picture patch: ${backupDir}`,
+        `Backup predates the two-archive specialty-picture patch: ${backupDir}`,
       );
     }
     const source = path.join(backupDir, relativePath);
@@ -725,10 +778,13 @@ function restore(gameDir, requestedBackup) {
   }
 
   const verified = inspect(gameDir);
-  if (!Object.values(verified.states).every((state) => state === "original")) {
+  if (
+    !manifest.states ||
+    !hasStates(verified.states, manifest.states)
+  ) {
     throw new Error("Restore verification failed.");
   }
-  console.log(`Restored original files from ${backupDir}`);
+  console.log(`Restored files from ${backupDir}`);
 }
 
 function showStatus(gameDir) {
