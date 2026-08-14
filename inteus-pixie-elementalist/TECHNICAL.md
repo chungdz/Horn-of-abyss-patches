@@ -3,7 +3,7 @@
 ## Target
 
 - Game: Horn of the Abyss 1.8.0
-- Hero: Inteus
+- Hero: Nyx, replacing Inteus
 - Hero ID: 140, zero-based
 - Existing class slot: Elementalist
 
@@ -16,12 +16,14 @@ Conflux random-map starting-hero selector.
 | --- | --- |
 | `h3hota.exe` | `b5f2f793af0986050fb41df7209c25d861ae0f837af52bb3bd6864ba4de84f41` |
 | `h3hota HD.exe` | `5aaab925f06cccf23bb09814767590a95b84a557eb33d244800520be4f1f18de` |
+| `HD_HOTA.dll` | `0ccb8e9eb0a43495c3a9dd09770f51ee41cc2ed79f9730298ac433c8432c4951` |
 | `Data/HotA_lng.lod` | `f4ba08f4adfcfb3dcffdc8fa2063307ff2a6caa48212b11073ef43dc73d3047e` |
 | `Data/H3sprite.lod` | `57caf2c50573f33a0d91e4222e51d3a73c136d44decf59dde21cacad88fe5d66` |
 | `Data/H3ab_spr.lod` | `e0d5003742c8602827ef409966784483dece6eedde76aa2cfeee26cb12d25d67` |
 
-The patcher accepts an original installation or the exact version 1.0.1 or
-1.0.2 state. It refuses other unknown or partially modified installations.
+The patcher accepts an original installation and the exact known states
+produced by earlier patch versions. It refuses unknown or partially modified
+installations.
 
 ## Executable Records
 
@@ -60,12 +62,12 @@ In `Data/HotA_lng.lod`:
 The replacements are appended uncompressed and their LOD directory entries
 are redirected to the new data. Other archive entries are unchanged.
 
-## Specialty Picture
+## Standard Specialty Pictures
 
 `UN32.def` and `UN44.def` are per-hero specialty-picture atlases. Frame 140 is
 Inteus's original Bloodlust picture in both. `UN32.def` supplies the 32x32
-picture in the random-map starting-hero selector; `UN44.def` supplies the
-44x44 picture in larger specialty views.
+picture in standard selectors; `UN44.def` supplies the 44x44 picture in
+standard larger specialty views.
 
 Both `Data/H3sprite.lod` and `Data/H3ab_spr.lod` contain same-named copies of
 these resources. Version 1.0.2 patches both copies rather than depending on
@@ -84,28 +86,117 @@ The patcher:
 5. Appends an uncompressed frame to each DEF and redirects only frame 140.
 6. Appends both updated DEFs and redirects only their LOD directory entries
    in each archive.
-7. Extracts the patched DEFs to `_HD3_Data/Compability/#hota/`.
-8. Adds both DEF names to that compatibility pack's `Files.ini`, making them
-   explicit HotA HD Mod overrides.
+7. Adds an `IX44.def` entry containing the patched 44x44 atlas to both sprite
+   LOD directories.
+8. Extracts the patched resources to
+   `_HD3_Data/Compability/#hota/` and registers them in `Files.ini`.
+9. Redirects the normal executable specialty display to the unique
+   `IX44.def` name so it cannot reuse a previously cached `UN44.def`.
 
 No other hero's specialty frame is changed.
 
+## HD Advanced Options Popup
+
+The random-map Advanced Options hero popup is not the normal game hero
+dialog. It is implemented by `HD.UI.Ext.HeroDlg` in `HD_HOTA.dll`.
+
+At virtual address `0x0123598A`, the original HotA 1.8.0 code constructs the
+specialty image with:
+
+```text
+resource = UN44.def
+frame = hero ID
+x = 72
+y = 18
+```
+
+For Inteus, hero ID 140, that path continued to show the original Physical
+Elemental image even after both game executables and both sprite archives
+were patched.
+
+Redirecting the DLL string from `UN44.def` to a new `IX44.def` name reached
+the correct control but produced an empty slot. The HD dialog's resource
+manager did not resolve the new name through loose files, `Files.ini`, or a
+new sprite-LOD directory entry. Those approaches are not the final popup
+solution.
+
+The working patch changes the constructor arguments to a resource already
+registered by the HD module:
+
+```text
+resource = CPRSMALL.def
+frame = 120 (CPrS118E.pcx, Pixie)
+constructor x = 78
+constructor y = 18
+```
+
+The exact `HD_HOTA.dll` file changes are:
+
+| File offset | Original | Patched | Purpose |
+| --- | --- | --- | --- |
+| `0x234D86` | `8B 45 08 50` | `6A 78 90 90` | Push fixed Pixie frame 120 instead of hero ID |
+| `0x234D8B` | `3C 04 2A 01` | `AC 6D 29 01` | Point to `CPRSMALL.def` at VA `0x01296DAC` |
+| `0x234D9A` | `6A 12 6A 48` | `6A 12 6A 4E` | Move the item right 6 |
+| `0x234DC3` | original width/height copy block | optimized copy plus `xPos += 6`, `yPos += 4` | Place the Pixie inside the specialty cell |
+
+The resource text at file offset `0x29EE3C` remains `UN44.def`; the working
+patch changes the constructor pointer rather than globally renaming that
+string.
+
+## Nyx Name And Portrait
+
+`HOTRAITS.TXT` row 140 changes the displayed name from Inteus to Nyx.
+`HeroBios.txt` uses the same name. The supplied image is converted to the
+Heroes III indexed-PCX format and replaces hero 140's unique resources
+`HPL004EL.pcx` (58x64) and `HPS004EL.pcx` (48x32) in both bitmap archives.
+
+The name change works. The portrait change does not currently appear in the
+random-map selector. HD Mod 5.6 R16 reads this view through the runtime
+`HotA.HPL_tbl`/`HotA.HPS_tbl` tables rather than the patched bitmap LOD entries.
+
+Loose same-name portrait overrides are unsafe. Registering the raw LOD-PCX
+payloads in `#hota15` crashes at `HD_TC2.dll+0x6710`. Converting them to valid
+three-plane ZSoft PCX files reaches the same null dereference. The finalizer
+therefore removes both portrait names and loose files from `#hota` and
+`#hota15`.
+
+## Unresolved Standard Dialogs
+
+The standard scenario selector still displays Bloodlust, even though frame
+140 differs from the original in all of these locations:
+
+- `Data/H3sprite.lod`
+- `Data/H3ab_spr.lod`
+- `_HD3_Data/Compability/#hota`
+- `_HD3_Data/Compability/#hota15`
+
+Adding matching `UN32.def`, `UN44.def`, and `IX44.def` entries to
+`Data/HotA_ext.lod` also had no visible effect and was reverted. These results
+show that the dialog uses a HotA runtime resource path rather than normal LOD
+precedence. A runtime hook is required.
+
+An experimental rewrite of the HD portrait loader was also reverted. It
+crashed at `HD_HOTA.dll+0x23516A` while reading `0x9090911C`, indicating that
+the replacement overwrote live code or corrupted its object layout.
+
 ## Validation Performed
 
-- Fresh-install, version 1.0.1-upgrade, and version 1.0.2-upgrade
-  apply/status/restore rehearsals
-- Exact recovery of all three pre-apply states after restore, including
-  removal of generated HD override files
-- All 4,013 entries in the patched base sprite archive decompressed and
+- Original-install and guarded earlier-version upgrade checks
+- Timestamped backups include `HD_HOTA.dll`, both sprite archives, executable
+  files, `Files.ini`, and generated loose resources
+- All 4,014 entries in the patched base sprite archive decompressed and
   size-checked
-- All 569 entries in the patched expansion sprite archive decompressed and
+- All 570 entries in the patched expansion sprite archive decompressed and
   size-checked
 - All 224 entries in the patched language archive decompressed and size-checked
 - Executable differences restricted to Inteus's specialty and hero records
-- DEF differences in both archives restricted to frame 140 in `UN32.def` and
-  `UN44.def`
+- DEF image differences restricted to frame 140 in `UN32.def` and `UN44.def`
 - Pixel verification of all four generated frames against the Pixie source
-- Byte verification of the loose DEF overrides against the patched expansion
-  archive entries
-
-The game was not launched during validation.
+- Byte verification of `IX44.def` against the patched `UN44.def`
+- Screenshot A/B comparison confirming that the first position immediate is
+  horizontal and the second is vertical
+- Disassembly verification of the direct `xPos`/`yPos` adjustments
+- In-game verification of the Pixie specialty and position in the random-map
+  Advanced Options popup
+- In-game confirmation that portrait and standard scenario resource overrides
+  remain unresolved

@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.2.1 - 2026-08-14
+
+- Documented the verified partial support in HotA 1.8.0 with HD Mod 5.6 R16.
+- Removed unsafe loose hero-portrait overrides after reproducing an
+  `HD_TC2.dll+0x6710` crash with both raw and standard PCX files.
+- Restored the original empty `HotA_ext.lod` after confirming that extension
+  archive overrides do not affect the scenario specialty dialog.
+- Recorded the unresolved runtime-table work instead of claiming that hero
+  portraits and scenario specialty pictures are complete.
+
+## 1.2.0 - 2026-08-14
+
+- Renamed hero 140 to Nyx and added experimental large/small portraits.
+- Corrected the random-map HD popup specialty-icon positioning.
+
+## 1.1.0 - 2026-08-14
+
+- Fixed the HD Mod random-map hero popup by patching `HD_HOTA.dll` to use
+  built-in Pixie portrait frame 120.
+- Positioned the 32x32 Pixie portrait inside the original specialty layout.
+- Added guarded backup, restore, upgrade, and status handling for the DLL.
+- Documented the final working implementation and unsuccessful override
+  experiments.
+
 ## 1.0.3 - 2026-08-14
 
 - Added HotA-specific HD Mod loose overrides for `UN32.def` and `UN44.def`.
