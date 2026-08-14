@@ -1,0 +1,11 @@
+**/backups/
+*.dll
+*.exe
+*.lod
+*.snd
+*.vid
+*.log
+node_modules/
+.DS_Store
+Thumbs.db
+
