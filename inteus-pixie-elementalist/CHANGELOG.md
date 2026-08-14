@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.6.0 - 2026-08-14
+
+- Correct the authoritative `HOTRAITS.TXT` row for Nyx to three identical
+  `22-25 Pixies` stacks. The previous executable-only amount edit was
+  overwritten when HotA loaded this text table.
+- Restore the random-map Advanced Options specialty control to its native
+  `UN44.def`, hero-ID frame path.
+- Reuse the runtime-swapped, uniquely named `IX44.def` frame already
+  confirmed in scenarios, so the random-map image faces left and uses the
+  same brown-backed artwork instead of raw `CPRSMALL.def`.
+- Add guarded upgrade recognition for the complete 1.5.0 installation and
+  verify the final `HOTRAITS.TXT` fields and native popup constructor bytes.
+
 ## 1.5.0 - 2026-08-14
 
 - Replace Basic Tactics with Basic Wisdom while retaining Basic Fire Magic

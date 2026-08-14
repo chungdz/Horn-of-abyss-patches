@@ -74,12 +74,23 @@ const finalArmyAmounts = Buffer.from(
   "160000001900000016000000190000001600000019000000",
   "hex",
 );
+const popupFrameOffset = 0x234d86;
+const popupPointerOffset = 0x234d8b;
 const positionOffset = 0x234d9a;
 const mirrorOffset = 0x234d83;
 const layoutOffset = 0x234dc3;
+const originalPopupFrame = Buffer.from("8b450850", "hex");
+const directPixiePopupFrame = Buffer.from("6a789090", "hex");
+const originalPopupPointer = Buffer.from("3c042a01", "hex");
+const directPixiePopupPointer = Buffer.from("ac6d2901", "hex");
+const originalPosition = Buffer.from("6a126a48", "hex");
 const finalPosition = Buffer.from("6a126a4e", "hex");
 const originalMirror = Buffer.from([0x00]);
 const finalMirror = Buffer.from([0x01]);
+const originalLayout = Buffer.from(
+  "8b4dcc8b51308b45cc668b4a306689481c8b55cc8b42308b4dcc668b50346689511e8b",
+  "hex",
+);
 const currentLayout = Buffer.from(
   "8b45cc8b4830668b51306689501c668b51346689501e6683401a0a90909090909090",
   "hex",
@@ -625,7 +636,44 @@ function patchLanguage(archive) {
   if (index < 0) {
     throw new Error("Inteus row was not found in HOTRAITS.TXT.");
   }
-  rows[index] = rows[index].replace(/^Inteus\t/, "Nyx\t");
+  const fields = rows[index].split("\t");
+  const legacyFields = [
+    "15",
+    "25",
+    "Pixies",
+    "3",
+    "5",
+    "Air Elementals",
+    "3",
+    "5",
+    "Water Elementals",
+  ];
+  const finalFields = [
+    "22",
+    "25",
+    "Pixies",
+    "22",
+    "25",
+    "Pixies",
+    "22",
+    "25",
+    "Pixies",
+  ];
+  if (
+    fields.length !== 10 ||
+    !["Inteus", "Nyx"].includes(fields[0]) ||
+    (
+      !fields.slice(1).every((field, fieldIndex) =>
+        field === legacyFields[fieldIndex]
+      ) &&
+      !fields.slice(1).every((field, fieldIndex) =>
+        field === finalFields[fieldIndex]
+      )
+    )
+  ) {
+    throw new Error("Unexpected Inteus/Nyx row in HOTRAITS.TXT.");
+  }
+  rows[index] = ["Nyx", ...finalFields].join("\t");
 
   const bios = extractLodEntry(archive, "HeroBios.txt").toString("latin1");
   const updatedBios = bios.replace(
@@ -645,7 +693,31 @@ function patchLanguage(archive) {
 }
 
 function patchDll(buffer) {
-  if (!buffer.subarray(positionOffset, positionOffset + 4).equals(finalPosition)) {
+  const popupFrame = buffer.subarray(
+    popupFrameOffset,
+    popupFrameOffset + originalPopupFrame.length,
+  );
+  if (
+    !popupFrame.equals(originalPopupFrame) &&
+    !popupFrame.equals(directPixiePopupFrame)
+  ) {
+    throw new Error("Unexpected specialty frame code in HD_HOTA.dll.");
+  }
+  const popupPointer = buffer.subarray(
+    popupPointerOffset,
+    popupPointerOffset + originalPopupPointer.length,
+  );
+  if (
+    !popupPointer.equals(originalPopupPointer) &&
+    !popupPointer.equals(directPixiePopupPointer)
+  ) {
+    throw new Error("Unexpected specialty resource pointer in HD_HOTA.dll.");
+  }
+  const position = buffer.subarray(positionOffset, positionOffset + 4);
+  if (
+    !position.equals(originalPosition) &&
+    !position.equals(finalPosition)
+  ) {
     throw new Error("Unexpected specialty position bytes in HD_HOTA.dll.");
   }
   const scenarioResource = buffer.subarray(
@@ -662,16 +734,24 @@ function patchDll(buffer) {
   if (!mirror.equals(originalMirror) && !mirror.equals(finalMirror)) {
     throw new Error("Unexpected Pixie mirror argument in HD_HOTA.dll.");
   }
-  const layout = buffer.subarray(layoutOffset, layoutOffset + currentLayout.length);
-  if (!layout.equals(currentLayout) && !layout.equals(finalLayout)) {
+  const hasLayout = (expected) =>
+    buffer
+      .subarray(layoutOffset, layoutOffset + expected.length)
+      .equals(expected);
+  if (
+    !hasLayout(originalLayout) &&
+    !hasLayout(currentLayout) &&
+    !hasLayout(finalLayout)
+  ) {
     throw new Error("Unexpected specialty layout code in HD_HOTA.dll.");
   }
   const updated = Buffer.from(buffer);
   patchedScenarioName.copy(updated, scenarioDllStringOffset);
-  finalMirror.copy(updated, mirrorOffset);
-  if (layout.equals(currentLayout)) {
-    finalLayout.copy(updated, layoutOffset);
-  }
+  originalPopupFrame.copy(updated, popupFrameOffset);
+  originalPopupPointer.copy(updated, popupPointerOffset);
+  originalMirror.copy(updated, mirrorOffset);
+  originalPosition.copy(updated, positionOffset);
+  originalLayout.copy(updated, layoutOffset);
   return updated;
 }
 
@@ -951,10 +1031,25 @@ if (!installedDllScenario.equals(patchedScenarioName)) {
 }
 if (
   !read(files.dll)
-    .subarray(mirrorOffset, mirrorOffset + finalMirror.length)
-    .equals(finalMirror)
+    .subarray(popupFrameOffset, popupFrameOffset + originalPopupFrame.length)
+    .equals(originalPopupFrame) ||
+  !read(files.dll)
+    .subarray(
+      popupPointerOffset,
+      popupPointerOffset + originalPopupPointer.length,
+    )
+    .equals(originalPopupPointer) ||
+  !read(files.dll)
+    .subarray(mirrorOffset, mirrorOffset + originalMirror.length)
+    .equals(originalMirror) ||
+  !read(files.dll)
+    .subarray(positionOffset, positionOffset + originalPosition.length)
+    .equals(originalPosition) ||
+  !read(files.dll)
+    .subarray(layoutOffset, layoutOffset + originalLayout.length)
+    .equals(originalLayout)
 ) {
-  throw new Error("Pixie mirror verification failed: HD_HOTA.dll");
+  throw new Error("Native specialty-popup restoration failed: HD_HOTA.dll");
 }
 for (const relativePath of [files.spritesBase, files.spritesExpansion]) {
   const archive = read(relativePath);

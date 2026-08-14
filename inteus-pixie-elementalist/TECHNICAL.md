@@ -52,8 +52,9 @@ At file offset `0x27D020`, the hero record changes:
 - All three starting creature IDs to Pixie, creature ID 118
 
 The three `H3HeroInfo::StartingCreatures` low/high pairs begin at file offset
-`0x27D064`. Each pair changes from `0/0` to `22/25`, producing three Pixie
-stacks with the requested range.
+`0x27D064`. The executable copies are kept at `22/25`, but HotA reloads the
+displayed and instantiated starting amounts from `HOTRAITS.TXT`; changing only
+these bytes did not affect the game.
 
 ## Text Archive
 
@@ -61,6 +62,9 @@ In `Data/HotA_lng.lod`:
 
 - `HeroSpec.txt`, row `142`, receives the Pixie/Sprite specialty name and text.
 - `HeroBios.txt`, row `140`, receives the updated biography.
+- `HOTRAITS.TXT`, data row `142` (hero ID 140 plus two headers), changes from
+  `15-25 Pixies, 3-5 Air Elementals, 3-5 Water Elementals` to three
+  `22-25 Pixies` entries.
 
 The replacements are appended uncompressed and their LOD directory entries
 are redirected to the new data. Other archive entries are unchanged.
@@ -126,8 +130,9 @@ manager did not resolve the new name through loose files, `Files.ini`, or a
 new sprite-LOD directory entry. Those approaches are not the final popup
 solution.
 
-The working patch changes the constructor arguments to a resource already
-registered by the HD module:
+Version 1.5.0 changed the constructor to raw `CPRSMALL.def` frame 120. In-game
+testing showed that this path still faced right and exposed the cyan
+placeholder:
 
 ```text
 resource = CPRSMALL.def
@@ -137,19 +142,22 @@ constructor x = 78
 constructor y = 18
 ```
 
-The exact `HD_HOTA.dll` file changes are:
+The constructor's mirror field did not alter the displayed orientation on
+this HD path. Version 1.6.0 restores the native constructor bytes:
 
 | File offset | Original | Patched | Purpose |
 | --- | --- | --- | --- |
-| `0x234D83` | `00` | `01` | Mirror the Pixie to face left |
-| `0x234D86` | `8B 45 08 50` | `6A 78 90 90` | Push fixed Pixie frame 120 instead of hero ID |
-| `0x234D8B` | `3C 04 2A 01` | `AC 6D 29 01` | Point to `CPRSMALL.def` at VA `0x01296DAC` |
-| `0x234D9A` | `6A 12 6A 48` | `6A 12 6A 4E` | Move the item right 6 |
-| `0x234DC3` | original width/height copy block | optimized copy plus `xPos += 6`, `yPos += 4` | Place the Pixie inside the specialty cell |
+| `0x234D83` | `01` | `00` | Remove the ineffective raw-frame mirror flag |
+| `0x234D86` | `6A 78 90 90` | `8B 45 08 50` | Use the selected hero ID as the frame |
+| `0x234D8B` | `AC 6D 29 01` | `3C 04 2A 01` | Point back to `UN44.def` |
+| `0x234D9A` | `6A 12 6A 4E` | `6A 12 6A 48` | Restore the native position |
+| `0x234DC3` | compact centering block | native width/height copy block | Restore native 44x44 layout |
 
-The resource text at file offset `0x29EE3C` remains `UN44.def`; the working
-patch changes the constructor pointer rather than globally renaming that
-string.
+The runtime DLL has already replaced loaded `UN44.def` frame 140 with the
+unique, left-facing `IX44.def` frame before this dialog opens. The popup
+therefore shares the same confirmed image as the scenario hero screen,
+including the brown dialog-texture background. The resource text at file
+offset `0x29EE3C` remains `UN44.def`.
 
 ## Nyx Name And Portrait
 
@@ -349,5 +357,9 @@ probe later showed that loader rewriting was unnecessary.
 - Verification that both generated frames contain zero cyan-key index-0
   pixels
 - Byte verification of Fire Magic/Wisdom, three Pixie creature IDs, and three
-  `22/25` starting-amount pairs in both executables
-- Byte verification of the random-map popup mirror argument
+  `22/25` executable starting-amount pairs
+- Extraction and exact field verification of the authoritative
+  `HOTRAITS.TXT` row:
+  `Nyx, 22, 25, Pixies, 22, 25, Pixies, 22, 25, Pixies`
+- Byte verification that the random-map popup uses native `UN44.def`,
+  selected-hero frame, position, mirror, and layout arguments

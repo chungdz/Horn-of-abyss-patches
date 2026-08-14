@@ -1,6 +1,6 @@
 # Nyx Pixie Elementalist
 
-Version 1.5.0
+Version 1.6.0
 
 This patch replaces Inteus, hero ID 140, with Nyx in Horn of the Abyss 1.8.0.
 It uses Inteus's existing Elementalist slot, so he remains available in the
@@ -29,10 +29,10 @@ another mod that needs the same loader slot requires merging the DLL behavior.
 
 Standard specialty panels place a cyan placeholder underneath their original
 full-square artwork. A transparent Pixie therefore reveals cyan rather than
-the dialog beneath it. Version 1.5.0 mirrors the Pixie to face left and
-composites it over the game's native brown dialog texture. The generated
-frames contain no cyan-key pixels; the new image, skill, and army changes
-still need a visual/gameplay check in-game.
+the dialog beneath it. The patch mirrors the Pixie to face left and composites
+it over the game's native brown dialog texture. The generated frames contain
+no cyan-key pixels. Version 1.6.0's random-map image and corrected starting
+army still need an in-game check.
 
 ## Requirements
 
@@ -114,15 +114,11 @@ derives the Pixie specialty pictures from the user's installed resources.
 The included `NyxRuntimeFix.dll` is custom code built from the source under
 `runtime-hook/`.
 
-The random-map Advanced Options popup is a separate `HD_HOTA.dll`
-implementation. Its specialty control is patched directly to use built-in
-`CPRSMALL.def` frame 120, mirrors it to face left, and positions it correctly.
-HD Mod serves the custom hero portrait from registered BMP replacements for
-HotA's HPL/HPS PCX requests.
-
 Standard scenario and in-game views cache the original `UN32.def` and
 `UN44.def` frames. At startup the custom runtime fix replaces only frame 140
 in those loaded atlases with uniquely named frames from `IX32.def` and
-`IX44.def`. Both views are confirmed working. The 30x32 `CPRSMALL.def` Pixie
-is mirrored without scaling and composited over `DiBoxBck.pcx` on 32x32 and
-44x44 canvases.
+`IX44.def`. The random-map Advanced Options popup now uses that same loaded
+`UN44.def` frame instead of drawing a separate raw creature portrait. This
+keeps all specialty views left-facing and removes the cyan background. HD Mod
+serves the custom hero portrait from registered BMP replacements for HotA's
+HPL/HPS PCX requests.

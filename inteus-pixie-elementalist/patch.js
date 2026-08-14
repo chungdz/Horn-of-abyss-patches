@@ -20,6 +20,7 @@ const HD_HOTA_SPECIALTY_MIRROR_OFFSET = 0x234d83;
 const HD_HOTA_SPECIALTY_POSITION_OFFSET = 0x234d9a;
 const HD_HOTA_SPECIALTY_LAYOUT_OFFSET = 0x234dc3;
 const HD_HOTA_SPECIALTY_RESOURCE_OFFSET = 0x29ee3c;
+const HD_HOTA_SCENARIO_RESOURCE_OFFSET = 0x295ff0;
 const PIXIE_PORTRAIT_FRAME = 120;
 const DIALOG_BACKGROUND_RESOURCE = "DiBoxBck.pcx";
 const SPECIALTY_DISPLAY_RESOURCE = "IX44.def";
@@ -145,6 +146,15 @@ const V140_HASHES = {
   [FILES.spritesExpansion]: "59b0e9e7af295817d6ada2b6482fa5b77b085a605d638423b2b6a0e99c1fda38",
 };
 
+const V150_HASHES = {
+  [FILES.exe]: "9e5074adfb1894e29504890059c149ad2c02611edc7c3bb9b1628fc98256b49d",
+  [FILES.hdExe]: "bf05670d1f4da4b7cc209bf332e84df7ca3073370926845dd3e6dead16f4797e",
+  [FILES.hdHotA]: "e06b3057e84f88115f9ad309ea01ce96ee4af02d618695a45066e9261193378b",
+  [FILES.language]: "a12b33ded76ef09b03cf750f1c869269ceb1d1e1d1206b9ff56c44f83689ed54",
+  [FILES.spritesBase]: "72e36d6f4bcb64707654f89cc67d519d63c210e89dba3aad6199e87336f4f9c5",
+  [FILES.spritesExpansion]: "9746edbc6f2fbf3aeaab623bfea8a70c111c704ccb111cd816592db1f6b72455",
+};
+
 const ORIGINAL_SPECIALTY = Buffer.from(
   "030000002b0000000000000000000000000000000000000000000000",
   "hex",
@@ -213,6 +223,14 @@ const PATCHED_HD_HOTA_SPECIALTY_LAYOUT = Buffer.from(
   "8b45cc8b4830668b51306689501c668b51346689501e66834018066683401a049090",
   "hex",
 );
+const ORIGINAL_HD_HOTA_SCENARIO_RESOURCE = Buffer.from(
+  "un32.def\0",
+  "latin1",
+);
+const PATCHED_HD_HOTA_SCENARIO_RESOURCE = Buffer.from(
+  "ix32.def\0",
+  "latin1",
+);
 
 const SPECIALTY_FIELDS = [
   "Pixies",
@@ -220,8 +238,32 @@ const SPECIALTY_FIELDS = [
   "{Pixies and Sprites}\n\nIncreases the Speed of allied Pixies and Sprites by 1 and their Attack and Defense skills by 10% for every level (rounded up).",
 ];
 
-const BIOGRAPHY =
+const LEGACY_HERO_TRAITS_FIELDS = [
+  "15",
+  "25",
+  "Pixies",
+  "3",
+  "5",
+  "Air Elementals",
+  "3",
+  "5",
+  "Water Elementals",
+];
+const PATCHED_HERO_TRAITS_FIELDS = [
+  "22",
+  "25",
+  "Pixies",
+  "22",
+  "25",
+  "Pixies",
+  "22",
+  "25",
+  "Pixies",
+];
+const LEGACY_BIOGRAPHY =
   "Inteus's command of fire drew the smallest spirits of the Conflux to his side. He shelters Pixies and Sprites behind walls of living flame, training them to strike with speed and surprising strength.";
+const BIOGRAPHY =
+  "Nyx's command of fire drew the smallest spirits of the Conflux to his side. He shelters Pixies and Sprites behind walls of living flame, training them to strike with speed and surprising strength.";
 
 function fail(message) {
   console.error(`Error: ${message}`);
@@ -390,15 +432,36 @@ function hdHotAState(buffer) {
     HD_HOTA_SPECIALTY_LAYOUT_OFFSET,
     PATCHED_HD_HOTA_SPECIALTY_LAYOUT,
   );
+  const scenarioOriginal = equalAt(
+    buffer,
+    HD_HOTA_SCENARIO_RESOURCE_OFFSET,
+    ORIGINAL_HD_HOTA_SCENARIO_RESOURCE,
+  );
+  const scenarioPatched = equalAt(
+    buffer,
+    HD_HOTA_SCENARIO_RESOURCE_OFFSET,
+    PATCHED_HD_HOTA_SCENARIO_RESOURCE,
+  );
 
   if (
     codeOriginal &&
     resourceOriginal &&
     positionOriginal &&
     layoutOriginal &&
-    mirrorOriginal
+    mirrorOriginal &&
+    scenarioOriginal
   ) {
     return "original";
+  }
+  if (
+    codeOriginal &&
+    resourceOriginal &&
+    positionOriginal &&
+    layoutOriginal &&
+    mirrorOriginal &&
+    scenarioPatched
+  ) {
+    return "patched";
   }
   if (
     codeOriginal &&
@@ -470,7 +533,7 @@ function hdHotAState(buffer) {
     layoutPatched &&
     mirrorPatched
   ) {
-    return "patched";
+    return "legacy-popup";
   }
   return "unknown";
 }
@@ -1016,7 +1079,10 @@ function patchedLanguageArchive(originalArchive) {
   const specialtyRow = HERO_ID + 2;
   if (
     specialtyRows.length <= specialtyRow ||
-    specialtyRows[specialtyRow][0] !== "Bloodlust"
+    (
+      specialtyRows[specialtyRow][0] !== "Bloodlust" &&
+      specialtyRows[specialtyRow][0] !== SPECIALTY_FIELDS[0]
+    )
   ) {
     throw new Error("Unexpected Inteus specialty text in HeroSpec.txt.");
   }
@@ -1027,11 +1093,37 @@ function patchedLanguageArchive(originalArchive) {
     .split(/\r?\n/);
   if (
     heroBios.length <= HERO_ID ||
-    !heroBios[HERO_ID].startsWith("At an early age, Inteus' mastery")
+    (
+      !heroBios[HERO_ID].startsWith("At an early age, Inteus' mastery") &&
+      heroBios[HERO_ID] !== LEGACY_BIOGRAPHY &&
+      heroBios[HERO_ID] !== BIOGRAPHY
+    )
   ) {
     throw new Error("Unexpected Inteus biography in HeroBios.txt.");
   }
   heroBios[HERO_ID] = BIOGRAPHY;
+
+  const heroTraits = parseTsv(
+    extractLodEntry(originalArchive, "HOTRAITS.TXT").toString("latin1"),
+  );
+  const traitsRow = HERO_ID + 2;
+  const currentTraits = heroTraits[traitsRow];
+  if (
+    !currentTraits ||
+    currentTraits.length !== 10 ||
+    !["Inteus", "Nyx"].includes(currentTraits[0]) ||
+    (
+      !currentTraits.slice(1).every((field, index) =>
+        field === LEGACY_HERO_TRAITS_FIELDS[index]
+      ) &&
+      !currentTraits.slice(1).every((field, index) =>
+        field === PATCHED_HERO_TRAITS_FIELDS[index]
+      )
+    )
+  ) {
+    throw new Error("Unexpected Inteus/Nyx row in HOTRAITS.TXT.");
+  }
+  heroTraits[traitsRow] = ["Nyx", ...PATCHED_HERO_TRAITS_FIELDS];
 
   let archive = replaceLodEntry(
     originalArchive,
@@ -1042,6 +1134,11 @@ function patchedLanguageArchive(originalArchive) {
     archive,
     "HeroBios.txt",
     Buffer.from(`${heroBios.join("\r\n")}`, "latin1"),
+  );
+  archive = replaceLodEntry(
+    archive,
+    "HOTRAITS.TXT",
+    Buffer.from(serializeTsv(heroTraits), "latin1"),
   );
   return archive;
 }
@@ -1054,19 +1151,46 @@ function languageState(archive) {
     const heroBios = extractLodEntry(archive, "HeroBios.txt")
       .toString("latin1")
       .split(/\r?\n/);
-    const biographyPatched =
-      heroBios[HERO_ID] === BIOGRAPHY ||
-      heroBios[HERO_ID] === BIOGRAPHY.replace(/^Inteus's/, "Nyx's");
-    if (
+    const heroTraits = parseTsv(
+      extractLodEntry(archive, "HOTRAITS.TXT").toString("latin1"),
+    );
+    const traits = heroTraits[HERO_ID + 2];
+    const specialtyPatched =
       specialtyRows[HERO_ID + 2]?.[0] === SPECIALTY_FIELDS[0] &&
-      specialtyRows[HERO_ID + 2]?.[2] === SPECIALTY_FIELDS[2] &&
-      biographyPatched
+      specialtyRows[HERO_ID + 2]?.[2] === SPECIALTY_FIELDS[2];
+    const traitsLegacy =
+      traits?.length === 10 &&
+      ["Inteus", "Nyx"].includes(traits?.[0]) &&
+      traits?.slice(1).every((field, index) =>
+        field === LEGACY_HERO_TRAITS_FIELDS[index]
+      );
+    const traitsPatched =
+      traits?.length === 10 &&
+      traits?.[0] === "Nyx" &&
+      traits.slice(1).every((field, index) =>
+        field === PATCHED_HERO_TRAITS_FIELDS[index]
+      );
+    if (
+      specialtyPatched &&
+      heroBios[HERO_ID] === BIOGRAPHY &&
+      traitsPatched
     ) {
       return "patched";
     }
     if (
+      specialtyPatched &&
+      [LEGACY_BIOGRAPHY, BIOGRAPHY].includes(heroBios[HERO_ID]) &&
+      traitsLegacy
+    ) {
+      return "legacy";
+    }
+    if (
       specialtyRows[HERO_ID + 2]?.[0] === "Bloodlust" &&
-      heroBios[HERO_ID]?.startsWith("At an early age, Inteus' mastery")
+      heroBios[HERO_ID]?.startsWith("At an early age, Inteus' mastery") &&
+      traits?.[0] === "Inteus" &&
+      traits.slice(1).every((field, index) =>
+        field === LEGACY_HERO_TRAITS_FIELDS[index]
+      )
     ) {
       return "original";
     }
@@ -1313,7 +1437,7 @@ function apply(gameDir) {
     [FILES.exe]: "legacy",
     [FILES.hdExe]: "legacy",
     [FILES.hdHotA]: "original",
-    [FILES.language]: "patched",
+    [FILES.language]: "legacy",
     [FILES.spritesBase]: "original",
     [FILES.spritesExpansion]: "legacy",
     [HD_OVERRIDE_STATE_KEY]: "original",
@@ -1358,9 +1482,19 @@ function apply(gameDir) {
     [FILES.exe]: "legacy",
     [FILES.hdExe]: "legacy",
     [FILES.hdHotA]: "legacy-mirror",
-    [FILES.language]: "patched",
+    [FILES.language]: "legacy",
     [FILES.spritesBase]: "legacy",
     [FILES.spritesExpansion]: "legacy",
+    [HD_OVERRIDE_STATE_KEY]: "patched",
+    [DISPLAY_OVERRIDE_STATE_KEY]: "patched",
+  };
+  const v150States = {
+    [FILES.exe]: "patched",
+    [FILES.hdExe]: "patched",
+    [FILES.hdHotA]: "legacy-popup",
+    [FILES.language]: "legacy",
+    [FILES.spritesBase]: "patched",
+    [FILES.spritesExpansion]: "patched",
     [HD_OVERRIDE_STATE_KEY]: "patched",
     [DISPLAY_OVERRIDE_STATE_KEY]: "patched",
   };
@@ -1375,6 +1509,7 @@ function apply(gameDir) {
   const isV108 = hasStates(inspected.states, v108States);
   const isV109 = hasStates(inspected.states, v109States);
   const isV140 = hasStates(inspected.states, v140States);
+  const isV150 = hasStates(inspected.states, v150States);
   if (
     !isOriginal &&
     !isV101 &&
@@ -1386,7 +1521,8 @@ function apply(gameDir) {
     !isV107 &&
     !isV108 &&
     !isV109 &&
-    !isV140
+    !isV140 &&
+    !isV150
   ) {
     throw new Error(
       `The installation is in a mixed or unknown state:\n${JSON.stringify(inspected.states, null, 2)}`,
@@ -1412,6 +1548,8 @@ function apply(gameDir) {
         ? V109_HASHES
       : isV140
         ? V140_HASHES
+      : isV150
+        ? V150_HASHES
         : V102_HASHES,
   );
 
@@ -1435,23 +1573,23 @@ function apply(gameDir) {
   fs.writeFileSync(path.join(gameDir, FILES.exe), patchExecutable(inspected.exe));
   fs.writeFileSync(path.join(gameDir, FILES.hdExe), patchExecutable(inspected.hdExe));
   const patchedHdHotA = Buffer.from(inspected.hdHotA);
-  PATCHED_HD_HOTA_SPECIALTY_FRAME.copy(
+  ORIGINAL_HD_HOTA_SPECIALTY_FRAME.copy(
     patchedHdHotA,
     HD_HOTA_SPECIALTY_FRAME_OFFSET,
   );
-  PATCHED_HD_HOTA_SPECIALTY_POINTER.copy(
+  ORIGINAL_HD_HOTA_SPECIALTY_POINTER.copy(
     patchedHdHotA,
     HD_HOTA_SPECIALTY_POINTER_OFFSET,
   );
-  PATCHED_HD_HOTA_SPECIALTY_MIRROR.copy(
+  ORIGINAL_HD_HOTA_SPECIALTY_MIRROR.copy(
     patchedHdHotA,
     HD_HOTA_SPECIALTY_MIRROR_OFFSET,
   );
-  PATCHED_HD_HOTA_SPECIALTY_POSITION.copy(
+  ORIGINAL_HD_HOTA_SPECIALTY_POSITION.copy(
     patchedHdHotA,
     HD_HOTA_SPECIALTY_POSITION_OFFSET,
   );
-  PATCHED_HD_HOTA_SPECIALTY_LAYOUT.copy(
+  ORIGINAL_HD_HOTA_SPECIALTY_LAYOUT.copy(
     patchedHdHotA,
     HD_HOTA_SPECIALTY_LAYOUT_OFFSET,
   );
@@ -1459,8 +1597,15 @@ function apply(gameDir) {
     patchedHdHotA,
     HD_HOTA_SPECIALTY_RESOURCE_OFFSET,
   );
+  PATCHED_HD_HOTA_SCENARIO_RESOURCE.copy(
+    patchedHdHotA,
+    HD_HOTA_SCENARIO_RESOURCE_OFFSET,
+  );
   fs.writeFileSync(path.join(gameDir, FILES.hdHotA), patchedHdHotA);
-  if (inspected.states[FILES.language] === "original") {
+  if (
+    inspected.states[FILES.language] === "original" ||
+    inspected.states[FILES.language] === "legacy"
+  ) {
     fs.writeFileSync(
       path.join(gameDir, FILES.language),
       patchedLanguageArchive(inspected.language),
