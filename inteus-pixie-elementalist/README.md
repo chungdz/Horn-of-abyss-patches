@@ -1,6 +1,6 @@
 # Nyx Pixie Elementalist
 
-Version 1.6.1
+Version 1.7.0
 
 This patch replaces Inteus, hero ID 140, with Nyx in Horn of the Abyss 1.8.0.
 It uses Inteus's existing Elementalist slot, so she remains available in the
@@ -75,17 +75,29 @@ Select a specific backup when needed:
 node patch.js restore --game-dir "C:\Games\HoMM 3 Complete" --backup "C:\Games\HoMM 3 Complete\ConfluxElementalistPatch\backups\YYYYMMDD-HHMMSS"
 ```
 
+Restore the complete original HotA 1.8.0 Inteus installation with:
+
+```bash
+node patch.js restore-original --game-dir "C:\Games\HoMM 3 Complete"
+```
+
+`restore-original` locates checksum-matched original files across the patch
+backup history. Before changing anything, it creates a complete safety backup
+of the current Nyx installation. It then restores all original binaries and
+archives, removes Nyx-only loose resources, and requires every status
+component to report `original`. The safety backup can be passed to the normal
+`restore` command to return to Nyx.
+
 Start a new random map after applying the patch and select Nyx from the
 Conflux starting heroes. Fully exit the game before applying or restoring;
 reopening only the random-map dialog does not reload the sprite archive.
 
 ## Scope
 
-The patch modifies:
+The final patch modifies:
 
 - `h3hota.exe`
 - `h3hota HD.exe`
-- `HD_HOTA.dll`
 - `Data/HotA_lng.lod`
 - `Data/H3sprite.lod`
 - `Data/H3ab_spr.lod`
@@ -109,10 +121,20 @@ The patch modifies:
 - `_HD3_Data/Compability/#hota15/HPS004EL.bmp`
 - `_HD3_Data/Common/setseed.dll`
 
+`HD_HOTA.dll` is checksum-verified as the original HotA 1.8.0 file. Earlier
+popup and `UN32.def` experiments were removed. Both executables retain only
+the Nyx specialty, skill, spell, creature, and amount record changes; their
+failed `IX32.def` and `IX44.def` lookup edits were restored to original bytes.
+Obsolete runtime-probe and constructor-trace logs are removed. The working
+`NyxRuntimeFix.log` remains.
+
 No original game files are distributed by this repository. The patcher
 derives the Pixie specialty pictures from the user's installed resources.
 The included `NyxRuntimeFix.dll` is custom code built from the source under
 `runtime-hook/`.
+
+The investigation process is recorded in
+[RUNTIME-TRACING.md](RUNTIME-TRACING.md).
 
 Standard scenario and in-game views cache the original `UN32.def` and
 `UN44.def` frames. At startup the custom runtime fix replaces only frame 140

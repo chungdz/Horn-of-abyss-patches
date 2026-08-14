@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.7.0 - 2026-08-14
+
+- Restore the failed `UN32.def` to `IX32.def` redirects in both executables
+  and `HD_HOTA.dll` to their original bytes.
+- Restore the obsolete executable `IX44.def` display pointer and code-cave
+  string to their original pointer and NOP bytes.
+- Remove installed `NyxImageTrace.log` and `NyxRuntimeProbe.log`; retain only
+  `NyxRuntimeFix.log`, which belongs to the working frame-table swap.
+- Verify that final `HD_HOTA.dll` is byte-identical to stock HotA 1.8.0.
+- Add a checksum-driven `restore-original` command. It creates a safety backup,
+  restores original files from the backup history, removes Nyx-generated
+  resources, and verifies every patch component as `original`.
+- Test the reverse path by restoring the automatically created safety backup
+  and verifying the cleaned Nyx state again.
+- Add `RUNTIME-TRACING.md` with the static and live investigation workflow.
+
 ## 1.6.1 - 2026-08-14
 
 - Record in-game confirmation that all three Nyx starting stacks use the

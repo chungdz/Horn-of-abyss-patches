@@ -81,3 +81,6 @@ the latter is the only unused verified loader path in the tested install.
 `image-trace.cpp` is the read-only constructor trace used to prove the
 standard specialty views do not call the expected `0x004EA800` constructor.
 It builds with `build-image-trace.sh`.
+
+The complete investigation sequence and lessons for future patches are in
+[`../RUNTIME-TRACING.md`](../RUNTIME-TRACING.md).

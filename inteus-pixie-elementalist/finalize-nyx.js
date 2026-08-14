@@ -55,6 +55,16 @@ const scenarioStringOffset = 0x2817dc;
 const scenarioDllStringOffset = 0x295ff0;
 const originalScenarioName = Buffer.from("un32.def\0", "latin1");
 const patchedScenarioName = Buffer.from("ix32.def\0", "latin1");
+const displayPointerOffset = 0xe0d89;
+const displayStringOffset = 0x1ff5d2;
+const originalDisplayPointer = Buffer.from("68909d6700", "hex");
+const patchedDisplayPointer = Buffer.from("68d2f55f00", "hex");
+const patchedDisplayString = Buffer.from("ix44.def\0", "latin1");
+const originalDisplayString = Buffer.alloc(patchedDisplayString.length, 0x90);
+const obsoleteDiagnosticLogs = [
+  path.join("_HD3_Data", "Common", "NyxImageTrace.log"),
+  path.join("_HD3_Data", "Common", "NyxRuntimeProbe.log"),
+];
 const heroDataOffset = 0x27d020;
 const armyAmountsOffset = heroDataOffset + 0x44;
 const originalHeroRecord = Buffer.from(
@@ -539,7 +549,7 @@ function buildSpecialtyDef(
     : patched;
 }
 
-function patchScenarioLookup(executable) {
+function cleanupExecutableLookups(executable) {
   const current = executable.subarray(
     scenarioStringOffset,
     scenarioStringOffset + originalScenarioName.length,
@@ -551,12 +561,34 @@ function patchScenarioLookup(executable) {
     throw new Error("Unexpected scenario specialty resource name.");
   }
   const updated = Buffer.from(executable);
-  patchedScenarioName.copy(updated, scenarioStringOffset);
+  originalScenarioName.copy(updated, scenarioStringOffset);
+  const displayPointer = executable.subarray(
+    displayPointerOffset,
+    displayPointerOffset + originalDisplayPointer.length,
+  );
+  if (
+    !displayPointer.equals(originalDisplayPointer) &&
+    !displayPointer.equals(patchedDisplayPointer)
+  ) {
+    throw new Error("Unexpected specialty display pointer.");
+  }
+  const displayString = executable.subarray(
+    displayStringOffset,
+    displayStringOffset + originalDisplayString.length,
+  );
+  if (
+    !displayString.equals(originalDisplayString) &&
+    !displayString.equals(patchedDisplayString)
+  ) {
+    throw new Error("Unexpected specialty display string.");
+  }
+  originalDisplayPointer.copy(updated, displayPointerOffset);
+  originalDisplayString.copy(updated, displayStringOffset);
   return updated;
 }
 
 function patchExecutable(executable) {
-  const updated = patchScenarioLookup(executable);
+  const updated = cleanupExecutableLookups(executable);
   const heroRecord = updated.subarray(
     heroDataOffset,
     heroDataOffset + finalHeroRecord.length,
@@ -765,7 +797,7 @@ function patchDll(buffer) {
     throw new Error("Unexpected specialty layout code in HD_HOTA.dll.");
   }
   const updated = Buffer.from(buffer);
-  patchedScenarioName.copy(updated, scenarioDllStringOffset);
+  originalScenarioName.copy(updated, scenarioDllStringOffset);
   originalPopupFrame.copy(updated, popupFrameOffset);
   originalPopupPointer.copy(updated, popupPointerOffset);
   originalMirror.copy(updated, mirrorOffset);
@@ -871,6 +903,18 @@ for (const relativePath of [scenarioLoosePath, displayLoosePath]) {
     manifest.files[runtimeHookPath] = hash(buffer);
   }
 }
+for (const relativePath of obsoleteDiagnosticLogs) {
+  const source = path.join(gameDir, relativePath);
+  if (!fs.existsSync(source)) {
+    manifest.files[relativePath] = null;
+    continue;
+  }
+  const destination = path.join(backupDir, relativePath);
+  fs.mkdirSync(path.dirname(destination), { recursive: true });
+  const buffer = fs.readFileSync(source);
+  fs.writeFileSync(destination, buffer);
+  manifest.files[relativePath] = hash(buffer);
+}
 for (const pack of ["#hota", "#hota15"]) {
   for (const name of [
     ...portraitNames,
@@ -936,6 +980,12 @@ writeIfChanged(
 fs.writeFileSync(path.join(gameDir, scenarioLoosePath), scenarioDef);
 fs.writeFileSync(path.join(gameDir, displayLoosePath), displayDef);
 fs.writeFileSync(path.join(gameDir, runtimeHookPath), runtimeHookAsset);
+for (const relativePath of obsoleteDiagnosticLogs) {
+  const destination = path.join(gameDir, relativePath);
+  if (fs.existsSync(destination)) {
+    fs.unlinkSync(destination);
+  }
+}
 fs.writeFileSync(
   path.join(
     gameDir,
@@ -1013,10 +1063,26 @@ for (const relativePath of [files.exe, files.hdExe]) {
   const executable = read(relativePath);
   const installed = executable.subarray(
     scenarioStringOffset,
-    scenarioStringOffset + patchedScenarioName.length,
+    scenarioStringOffset + originalScenarioName.length,
   );
-  if (!installed.equals(patchedScenarioName)) {
-    throw new Error(`Scenario resource redirection failed: ${relativePath}`);
+  if (!installed.equals(originalScenarioName)) {
+    throw new Error(`Scenario lookup cleanup failed: ${relativePath}`);
+  }
+  if (
+    !executable
+      .subarray(
+        displayPointerOffset,
+        displayPointerOffset + originalDisplayPointer.length,
+      )
+      .equals(originalDisplayPointer) ||
+    !executable
+      .subarray(
+        displayStringOffset,
+        displayStringOffset + originalDisplayString.length,
+      )
+      .equals(originalDisplayString)
+  ) {
+    throw new Error(`Specialty display cleanup failed: ${relativePath}`);
   }
   if (
     !executable
@@ -1043,10 +1109,10 @@ for (const relativePath of [files.exe, files.hdExe]) {
 }
 const installedDllScenario = read(files.dll).subarray(
   scenarioDllStringOffset,
-  scenarioDllStringOffset + patchedScenarioName.length,
+  scenarioDllStringOffset + originalScenarioName.length,
 );
-if (!installedDllScenario.equals(patchedScenarioName)) {
-  throw new Error("Scenario resource redirection failed: HD_HOTA.dll");
+if (!installedDllScenario.equals(originalScenarioName)) {
+  throw new Error("Scenario lookup cleanup failed: HD_HOTA.dll");
 }
 if (
   !read(files.dll)
@@ -1110,6 +1176,11 @@ if (!read(displayLoosePath).equals(displayDef)) {
 }
 if (!read(runtimeHookPath).equals(runtimeHookAsset)) {
   throw new Error(`Runtime hook verification failed: ${runtimeHookPath}`);
+}
+for (const relativePath of obsoleteDiagnosticLogs) {
+  if (fs.existsSync(path.join(gameDir, relativePath))) {
+    throw new Error(`Obsolete diagnostic log was not removed: ${relativePath}`);
+  }
 }
 for (const relativePath of [files.bitmap, files.bitmapExpansion]) {
   const archive = read(relativePath);

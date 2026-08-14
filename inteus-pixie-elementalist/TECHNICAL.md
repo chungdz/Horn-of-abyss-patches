@@ -237,6 +237,12 @@ This avoided the original executable resource name and any cached same-name
 atlas, but in-game testing still showed Bloodlust. That result proves the
 standard scenario selector does not use this executable construction path.
 
+Version 1.7.0 removes this failed redirect from both executables. File offset
+`0x2817DC` is restored to `un32.def`. It also restores the older executable
+specialty-display pointer at file offset `0x0E0D89` and its `ix44.def` string
+at `0x1FF5D2`; those edits predated the working runtime fix and did not fix
+the standard views.
+
 `HD_HOTA.dll` contains its own single `un32.def` string at virtual address
 `0x012975F0`, file offset `0x295FF0`. Four code sites pass it to the standard
 image constructor:
@@ -259,6 +265,11 @@ frame, so the change preserves every other hero. The finalizer guards both
 the original and already-patched DLL states and includes `HD_HOTA.dll` in its
 timestamped backup. In-game testing still showed Bloodlust in both standard
 views.
+
+Version 1.7.0 restores this failed DLL string redirect to `un32.def`. Together
+with the native popup constructor restored in version 1.6.0, this makes the
+final `HD_HOTA.dll` byte-identical to the supported original hash:
+`0ccb8e9eb0a43495c3a9dd09770f51ee41cc2ed79f9730298ac433c8432c4951`.
 
 A read-only runtime trace then hooked image construction at `0x004EA800`.
 Neither the standard scenario selector nor the entered scenario's hero screen
@@ -311,6 +322,42 @@ refuses to overwrite an unrelated DLL.
 An earlier experimental rewrite of the HD portrait loader was reverted. It
 crashed at `HD_HOTA.dll+0x23516A` while reading `0x9090911C`. The runtime
 probe later showed that loader rewriting was unnecessary.
+
+The repeatable investigation workflow, hook design, loader discovery, and
+cache diagnosis are documented in [RUNTIME-TRACING.md](RUNTIME-TRACING.md).
+
+## Final Patch Surface
+
+The retained changes are limited to:
+
+- Nyx's specialty, hero data, and starting-amount records in both executables
+- hero text and the authoritative `HOTRAITS.TXT` army row
+- Nyx portrait entries and registered BMP overrides
+- generated `IX32.def` and `IX44.def` frames with unique internal names
+- sprite/archive and HD compatibility resources needed to resolve those DEFs
+- the reviewed runtime frame-table swap installed as `setseed.dll`
+
+The final patch does not retain executable resource-name redirects,
+`HD_HOTA.dll` code/string edits, the crashing portrait-loader rewrite,
+`HotA_ext.lod` experiments, unsafe loose PCX portraits, the image-trace DLL,
+the portrait probe DLL, or their diagnostic logs.
+
+## Original Restore
+
+`patch.js restore-original`:
+
+1. Finds checksum-matched original files across
+   `ConfluxElementalistPatch/backups`.
+2. Refuses to remove `setseed.dll` if it is not the reviewed Nyx runtime DLL.
+3. Creates an `*-original-restore` safety backup of every original and
+   generated patch path.
+4. Restores the eight original binaries, LODs, and `Files.ini` files.
+5. Removes Nyx-only loose DEFs, portraits, runtime DLL, and logs.
+6. Verifies all original hashes and requires every normal status component to
+   report `original`.
+
+The safety backup uses the normal finalizer manifest format and can be
+restored with `patch.js restore`.
 
 ## Validation Performed
 
@@ -365,5 +412,12 @@ probe later showed that loader rewriting was unnecessary.
 - Byte verification that Wisdom occupies the first skill slot and Fire Magic
   the second
 - Text verification that Nyx's biography uses feminine pronouns
+- Byte verification that both executable resource lookups and the obsolete
+  display pointer/string are original
+- Stock SHA-256 verification of `HD_HOTA.dll`
+- Verification that obsolete probe/trace logs are absent and the working
+  runtime DLL remains installed
+- Isolated end-to-end test of `restore-original`, followed by restoration of
+  its patched-state safety backup
 - Byte verification that the random-map popup uses native `UN44.def`,
   selected-hero frame, position, mirror, and layout arguments

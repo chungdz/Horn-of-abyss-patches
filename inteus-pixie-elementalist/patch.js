@@ -14,6 +14,7 @@ const HERO_DATA_OFFSET = 0x27d020;
 const ARMY_AMOUNTS_OFFSET = HERO_DATA_OFFSET + 0x44;
 const SPECIALTY_DISPLAY_POINTER_OFFSET = 0xe0d89;
 const SPECIALTY_DISPLAY_STRING_OFFSET = 0x1ff5d2;
+const EXECUTABLE_SCENARIO_RESOURCE_OFFSET = 0x2817dc;
 const HD_HOTA_SPECIALTY_FRAME_OFFSET = 0x234d86;
 const HD_HOTA_SPECIALTY_POINTER_OFFSET = 0x234d8b;
 const HD_HOTA_SPECIALTY_MIRROR_OFFSET = 0x234d83;
@@ -203,6 +204,15 @@ const V160_HASHES = {
   [FILES.spritesExpansion]: "9746edbc6f2fbf3aeaab623bfea8a70c111c704ccb111cd816592db1f6b72455",
 };
 
+const V161_HASHES = {
+  [FILES.exe]: "7e591fec18a76c9c39ca8a94179476e7a8783397ac1eeb3326a811d9ebbacb75",
+  [FILES.hdExe]: "8c8ece7d86a4a19845f1012a8ad1324304396142b120f85a125b88989291113c",
+  [FILES.hdHotA]: "cd64ab03e2f821ab1a62668ca9f2550cb8b6069eb1ab94e82f390e5a5f268cfc",
+  [FILES.language]: "748b54cfac02ffc795f4b0c48c7cf6ef41ea0a6020f3cf41766271bd12eb81e9",
+  [FILES.spritesBase]: "72e36d6f4bcb64707654f89cc67d519d63c210e89dba3aad6199e87336f4f9c5",
+  [FILES.spritesExpansion]: "9746edbc6f2fbf3aeaab623bfea8a70c111c704ccb111cd816592db1f6b72455",
+};
+
 const ORIGINAL_SPECIALTY = Buffer.from(
   "030000002b0000000000000000000000000000000000000000000000",
   "hex",
@@ -242,6 +252,14 @@ const ORIGINAL_DISPLAY_STRING = Buffer.alloc(
 );
 const PATCHED_DISPLAY_STRING = Buffer.from(
   `${SPECIALTY_DISPLAY_RESOURCE.toLowerCase()}\0`,
+  "latin1",
+);
+const ORIGINAL_EXECUTABLE_SCENARIO_RESOURCE = Buffer.from(
+  "un32.def\0",
+  "latin1",
+);
+const PATCHED_EXECUTABLE_SCENARIO_RESOURCE = Buffer.from(
+  "ix32.def\0",
   "latin1",
 );
 const ORIGINAL_HD_HOTA_SPECIALTY_RESOURCE = Buffer.from(
@@ -390,21 +408,43 @@ function executableState(buffer) {
       SPECIALTY_DISPLAY_STRING_OFFSET,
       PATCHED_DISPLAY_STRING,
     );
+  const scenarioOriginal = equalAt(
+    buffer,
+    EXECUTABLE_SCENARIO_RESOURCE_OFFSET,
+    ORIGINAL_EXECUTABLE_SCENARIO_RESOURCE,
+  );
+  const scenarioPatched = equalAt(
+    buffer,
+    EXECUTABLE_SCENARIO_RESOURCE_OFFSET,
+    PATCHED_EXECUTABLE_SCENARIO_RESOURCE,
+  );
 
-  if (recordsOriginal && displayOriginal) {
+  if (recordsOriginal && displayOriginal && scenarioOriginal) {
     return "original";
   }
   if (
-    (recordsLegacy || recordsLegacyOrdered || recordsPatched) &&
-    displayOriginal
+    recordsPatched &&
+    displayOriginal &&
+    scenarioOriginal
+  ) {
+    return "patched";
+  }
+  if (
+    (recordsLegacy || recordsLegacyOrdered) &&
+    displayOriginal &&
+    (scenarioOriginal || scenarioPatched)
   ) {
     return "legacy";
   }
-  if ((recordsLegacy || recordsLegacyOrdered) && displayPatched) {
+  if (
+    (recordsLegacy || recordsLegacyOrdered || recordsPatched) &&
+    displayPatched &&
+    (scenarioOriginal || scenarioPatched)
+  ) {
     return "legacy";
   }
-  if (recordsPatched && displayPatched) {
-    return "patched";
+  if (recordsPatched && displayOriginal && scenarioPatched) {
+    return "legacy";
   }
   return "unknown";
 }
@@ -522,7 +562,7 @@ function hdHotAState(buffer) {
     mirrorOriginal &&
     scenarioPatched
   ) {
-    return "patched";
+    return "legacy-scenario";
   }
   if (
     codeOriginal &&
@@ -1437,6 +1477,19 @@ function hasStates(actual, expected) {
   );
 }
 
+function isFinalPatchState(states) {
+  return (
+    states[FILES.exe] === "patched" &&
+    states[FILES.hdExe] === "patched" &&
+    states[FILES.hdHotA] === "original" &&
+    states[FILES.language] === "patched" &&
+    states[FILES.spritesBase] === "patched" &&
+    states[FILES.spritesExpansion] === "patched" &&
+    states[HD_OVERRIDE_STATE_KEY] === "patched" &&
+    states[DISPLAY_OVERRIDE_STATE_KEY] === "patched"
+  );
+}
+
 function timestamp() {
   return new Date()
     .toISOString()
@@ -1494,8 +1547,7 @@ function createBackup(gameDir, states) {
 
 function apply(gameDir) {
   const inspected = inspect(gameDir);
-  const states = Object.values(inspected.states);
-  if (states.every((state) => state === "patched")) {
+  if (isFinalPatchState(inspected.states)) {
     console.log(`${HERO_NAME} is already patched as a Pixie Elementalist.`);
     return;
   }
@@ -1570,8 +1622,18 @@ function apply(gameDir) {
   const v160States = {
     [FILES.exe]: "legacy",
     [FILES.hdExe]: "legacy",
-    [FILES.hdHotA]: "patched",
+    [FILES.hdHotA]: "legacy-scenario",
     [FILES.language]: "legacy",
+    [FILES.spritesBase]: "patched",
+    [FILES.spritesExpansion]: "patched",
+    [HD_OVERRIDE_STATE_KEY]: "patched",
+    [DISPLAY_OVERRIDE_STATE_KEY]: "patched",
+  };
+  const v161States = {
+    [FILES.exe]: "legacy",
+    [FILES.hdExe]: "legacy",
+    [FILES.hdHotA]: "legacy-scenario",
+    [FILES.language]: "patched",
     [FILES.spritesBase]: "patched",
     [FILES.spritesExpansion]: "patched",
     [HD_OVERRIDE_STATE_KEY]: "patched",
@@ -1590,6 +1652,7 @@ function apply(gameDir) {
   const isV140 = hasStates(inspected.states, v140States);
   const isV150 = hasStates(inspected.states, v150States);
   const isV160 = hasStates(inspected.states, v160States);
+  const isV161 = hasStates(inspected.states, v161States);
   if (
     !isOriginal &&
     !isV101 &&
@@ -1603,7 +1666,8 @@ function apply(gameDir) {
     !isV109 &&
     !isV140 &&
     !isV150 &&
-    !isV160
+    !isV160 &&
+    !isV161
   ) {
     throw new Error(
       `The installation is in a mixed or unknown state:\n${JSON.stringify(inspected.states, null, 2)}`,
@@ -1633,6 +1697,8 @@ function apply(gameDir) {
         ? V150_HASHES
       : isV160
         ? V160_HASHES
+      : isV161
+        ? V161_HASHES
         : V102_HASHES,
   );
 
@@ -1642,13 +1708,17 @@ function apply(gameDir) {
     PATCHED_SPECIALTY.copy(updated, SPECIALTY_OFFSET);
     PATCHED_HERO.copy(updated, HERO_DATA_OFFSET);
     PATCHED_ARMY_AMOUNTS.copy(updated, ARMY_AMOUNTS_OFFSET);
-    PATCHED_DISPLAY_POINTER.copy(
+    ORIGINAL_DISPLAY_POINTER.copy(
       updated,
       SPECIALTY_DISPLAY_POINTER_OFFSET,
     );
-    PATCHED_DISPLAY_STRING.copy(
+    ORIGINAL_DISPLAY_STRING.copy(
       updated,
       SPECIALTY_DISPLAY_STRING_OFFSET,
+    );
+    ORIGINAL_EXECUTABLE_SCENARIO_RESOURCE.copy(
+      updated,
+      EXECUTABLE_SCENARIO_RESOURCE_OFFSET,
     );
     return updated;
   };
@@ -1680,7 +1750,7 @@ function apply(gameDir) {
     patchedHdHotA,
     HD_HOTA_SPECIALTY_RESOURCE_OFFSET,
   );
-  PATCHED_HD_HOTA_SCENARIO_RESOURCE.copy(
+  ORIGINAL_HD_HOTA_SCENARIO_RESOURCE.copy(
     patchedHdHotA,
     HD_HOTA_SCENARIO_RESOURCE_OFFSET,
   );
@@ -1739,7 +1809,7 @@ function apply(gameDir) {
   );
 
   const verified = inspect(gameDir);
-  if (!Object.values(verified.states).every((state) => state === "patched")) {
+  if (!isFinalPatchState(verified.states)) {
     throw new Error(
       `Patch verification failed. Restore from ${backupDir} before launching the game.`,
     );
