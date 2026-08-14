@@ -20,8 +20,8 @@ Conflux random-map starting-hero selector.
 | `Data/H3sprite.lod` | `57caf2c50573f33a0d91e4222e51d3a73c136d44decf59dde21cacad88fe5d66` |
 | `Data/H3ab_spr.lod` | `e0d5003742c8602827ef409966784483dece6eedde76aa2cfeee26cb12d25d67` |
 
-The patcher accepts either an original installation or the exact version
-1.0.1 state. It refuses other unknown or partially modified installations.
+The patcher accepts an original installation or the exact version 1.0.1 or
+1.0.2 state. It refuses other unknown or partially modified installations.
 
 ## Executable Records
 
@@ -84,13 +84,18 @@ The patcher:
 5. Appends an uncompressed frame to each DEF and redirects only frame 140.
 6. Appends both updated DEFs and redirects only their LOD directory entries
    in each archive.
+7. Extracts the patched DEFs to `_HD3_Data/Compability/#hota/`.
+8. Adds both DEF names to that compatibility pack's `Files.ini`, making them
+   explicit HotA HD Mod overrides.
 
 No other hero's specialty frame is changed.
 
 ## Validation Performed
 
-- Fresh-install and version 1.0.1-upgrade apply/status/restore rehearsals
-- Exact recovery of the original and pre-upgrade states after restore
+- Fresh-install, version 1.0.1-upgrade, and version 1.0.2-upgrade
+  apply/status/restore rehearsals
+- Exact recovery of all three pre-apply states after restore, including
+  removal of generated HD override files
 - All 4,013 entries in the patched base sprite archive decompressed and
   size-checked
 - All 569 entries in the patched expansion sprite archive decompressed and
@@ -100,5 +105,7 @@ No other hero's specialty frame is changed.
 - DEF differences in both archives restricted to frame 140 in `UN32.def` and
   `UN44.def`
 - Pixel verification of all four generated frames against the Pixie source
+- Byte verification of the loose DEF overrides against the patched expansion
+  archive entries
 
 The game was not launched during validation.

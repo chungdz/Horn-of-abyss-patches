@@ -6,7 +6,7 @@ Horn of the Abyss.
 ## Patches
 
 - [Inteus Pixie Elementalist](inteus-pixie-elementalist/README.md), version
-  1.0.2, for HotA 1.8.0
+  1.0.3, for HotA 1.8.0
 
 The repository contains patching code and documentation only. It does not
 contain Heroes III or Horn of the Abyss executables, archives, artwork, or

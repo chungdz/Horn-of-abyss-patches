@@ -1,6 +1,6 @@
 # Inteus Pixie Elementalist
 
-Version 1.0.2
+Version 1.0.3
 
 This patch reworks Inteus, hero ID 140, in Horn of the Abyss 1.8.0.
 It uses Inteus's existing Elementalist slot, so he remains available in the
@@ -69,8 +69,12 @@ The patch modifies:
 - `Data/HotA_lng.lod`
 - `Data/H3sprite.lod`
 - `Data/H3ab_spr.lod`
+- `_HD3_Data/Compability/#hota/Files.ini`
+- `_HD3_Data/Compability/#hota/UN32.def`
+- `_HD3_Data/Compability/#hota/UN44.def`
 
 No game files are distributed by this repository. The patcher derives the
 Pixie specialty pictures from the user's installed game resources. Both
 sprite archives are patched so the result does not depend on which copy the
-game or HD launcher resolves.
+game resolves. The two generated loose DEF files give the HD Mod an explicit
+HotA-specific override.

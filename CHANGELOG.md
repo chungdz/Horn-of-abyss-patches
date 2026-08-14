@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.3 - 2026-08-14
+
+- Added HotA-specific HD Mod loose overrides for `UN32.def` and `UN44.def`.
+- Registered the overrides in the HotA HD compatibility pack.
+- Added exact backup and restore handling for generated override files.
+
 ## 1.0.2 - 2026-08-14
 
 - Patched Inteus's 32x32 and 44x44 specialty pictures in both sprite archives.

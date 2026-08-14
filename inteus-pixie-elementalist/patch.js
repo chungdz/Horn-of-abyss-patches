@@ -32,7 +32,18 @@ const FILES = {
   language: path.join("Data", "HotA_lng.lod"),
   spritesBase: path.join("Data", "H3sprite.lod"),
   spritesExpansion: path.join("Data", "H3ab_spr.lod"),
+  hdFilesIni: path.join(
+    "_HD3_Data",
+    "Compability",
+    "#hota",
+    "Files.ini",
+  ),
 };
+
+const HD_OVERRIDE_STATE_KEY = "HD Mod specialty overrides";
+const HD_OVERRIDE_FILES = SPECIALTY_ICON_RESOURCES.map((resource) =>
+  path.join("_HD3_Data", "Compability", "#hota", resource.name),
+);
 
 const ORIGINAL_HASHES = {
   [FILES.exe]: "b5f2f793af0986050fb41df7209c25d861ae0f837af52bb3bd6864ba4de84f41",
@@ -56,6 +67,11 @@ const V101_HASHES = {
   [FILES.language]: "529b294498002f8d49a42c50db89361097ed58edcb76e36418108cdfdf792671",
   [FILES.spritesBase]: ORIGINAL_HASHES[FILES.spritesBase],
   [FILES.spritesExpansion]: "789739587a20725d3dc2b16685b4c248eaa6e299a34ea20b15d2db342f9c13d8",
+};
+
+const V102_HASHES = {
+  ...V101_HASHES,
+  [FILES.spritesBase]: "95e55bdb456faec843690e9bc7e21d7720006e20c3ce959db96462f39ddbe1e5",
 };
 
 const ORIGINAL_SPECIALTY = Buffer.from(
@@ -573,6 +589,62 @@ function languageState(archive) {
   return "unknown";
 }
 
+function hdOverrideState(gameDir, spritesExpansion) {
+  const filesIni = readGameFile(gameDir, FILES.hdFilesIni).toString("latin1");
+  const listedNames = new Set(
+    filesIni
+      .split(/\r?\n/)
+      .map((line) => line.trim().replace(/^"|"$/g, "").toLowerCase())
+      .filter(Boolean),
+  );
+  const listed = SPECIALTY_ICON_RESOURCES.map((resource) =>
+    listedNames.has(resource.name.toLowerCase()),
+  );
+  const existing = HD_OVERRIDE_FILES.map((relativePath) =>
+    fs.existsSync(path.join(gameDir, relativePath)),
+  );
+
+  if (listed.every((value) => !value) && existing.every((value) => !value)) {
+    return "original";
+  }
+  if (!listed.every(Boolean) || !existing.every(Boolean)) {
+    return "unknown";
+  }
+
+  try {
+    for (let index = 0; index < SPECIALTY_ICON_RESOURCES.length; index += 1) {
+      const expected = extractLodEntry(
+        spritesExpansion,
+        SPECIALTY_ICON_RESOURCES[index].name,
+      );
+      const actual = readGameFile(gameDir, HD_OVERRIDE_FILES[index]);
+      if (!actual.equals(expected)) {
+        return "unknown";
+      }
+    }
+    return "patched";
+  } catch {
+    return "unknown";
+  }
+}
+
+function patchedHdFilesIni(original) {
+  const text = original.toString("latin1");
+  const newline = text.includes("\r\n") ? "\r\n" : "\n";
+  const lines = text.replace(/\r?\n+$/, "").split(/\r?\n/);
+  const listedNames = new Set(
+    lines.map((line) =>
+      line.trim().replace(/^"|"$/g, "").toLowerCase(),
+    ),
+  );
+  for (const resource of SPECIALTY_ICON_RESOURCES) {
+    if (!listedNames.has(resource.name.toLowerCase())) {
+      lines.push(`"${resource.name}"`);
+    }
+  }
+  return Buffer.from(`${lines.join(newline)}${newline}`, "latin1");
+}
+
 function inspect(gameDir) {
   assertHotAVersion(gameDir);
   const exe = readGameFile(gameDir, FILES.exe);
@@ -598,6 +670,7 @@ function inspect(gameDir) {
         spritesExpansion,
         ORIGINAL_HASHES[FILES.spritesExpansion],
       ),
+      [HD_OVERRIDE_STATE_KEY]: hdOverrideState(gameDir, spritesExpansion),
     },
   };
 }
@@ -626,8 +699,8 @@ function verifyHashes(inspected, expectedHashes) {
 }
 
 function hasStates(actual, expected) {
-  return PATCHED_FILES.every(
-    (relativePath) => actual[relativePath] === expected[relativePath],
+  return [...PATCHED_FILES, HD_OVERRIDE_STATE_KEY].every(
+    (key) => actual[key] === expected[key],
   );
 }
 
@@ -663,6 +736,17 @@ function createBackup(gameDir, states) {
     fs.copyFileSync(source, destination);
     manifest.files[relativePath] = hash(fs.readFileSync(destination));
   }
+  for (const relativePath of [FILES.hdFilesIni, ...HD_OVERRIDE_FILES]) {
+    const source = path.join(gameDir, relativePath);
+    if (!fs.existsSync(source)) {
+      manifest.files[relativePath] = null;
+      continue;
+    }
+    const destination = path.join(backupDir, relativePath);
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    fs.copyFileSync(source, destination);
+    manifest.files[relativePath] = hash(fs.readFileSync(destination));
+  }
   fs.writeFileSync(
     path.join(backupDir, "manifest.json"),
     `${JSON.stringify(manifest, null, 2)}\n`,
@@ -678,7 +762,7 @@ function apply(gameDir) {
     return;
   }
   const originalStates = Object.fromEntries(
-    PATCHED_FILES.map((relativePath) => [relativePath, "original"]),
+    [...PATCHED_FILES, HD_OVERRIDE_STATE_KEY].map((key) => [key, "original"]),
   );
   const v101States = {
     [FILES.exe]: "patched",
@@ -686,15 +770,32 @@ function apply(gameDir) {
     [FILES.language]: "patched",
     [FILES.spritesBase]: "original",
     [FILES.spritesExpansion]: "patched",
+    [HD_OVERRIDE_STATE_KEY]: "original",
+  };
+  const v102States = {
+    [FILES.exe]: "patched",
+    [FILES.hdExe]: "patched",
+    [FILES.language]: "patched",
+    [FILES.spritesBase]: "patched",
+    [FILES.spritesExpansion]: "patched",
+    [HD_OVERRIDE_STATE_KEY]: "original",
   };
   const isOriginal = hasStates(inspected.states, originalStates);
   const isV101 = hasStates(inspected.states, v101States);
-  if (!isOriginal && !isV101) {
+  const isV102 = hasStates(inspected.states, v102States);
+  if (!isOriginal && !isV101 && !isV102) {
     throw new Error(
       `The installation is in a mixed or unknown state:\n${JSON.stringify(inspected.states, null, 2)}`,
     );
   }
-  verifyHashes(inspected, isOriginal ? ORIGINAL_HASHES : V101_HASHES);
+  verifyHashes(
+    inspected,
+    isOriginal
+      ? ORIGINAL_HASHES
+      : isV101
+        ? V101_HASHES
+        : V102_HASHES,
+  );
 
   const backupDir = createBackup(gameDir, inspected.states);
   const patchExecutable = (buffer) => {
@@ -723,6 +824,20 @@ function apply(gameDir) {
       );
     }
   }
+  const patchedExpansion = readGameFile(gameDir, FILES.spritesExpansion);
+  for (let index = 0; index < SPECIALTY_ICON_RESOURCES.length; index += 1) {
+    fs.writeFileSync(
+      path.join(gameDir, HD_OVERRIDE_FILES[index]),
+      extractLodEntry(
+        patchedExpansion,
+        SPECIALTY_ICON_RESOURCES[index].name,
+      ),
+    );
+  }
+  fs.writeFileSync(
+    path.join(gameDir, FILES.hdFilesIni),
+    patchedHdFilesIni(readGameFile(gameDir, FILES.hdFilesIni)),
+  );
 
   const verified = inspect(gameDir);
   if (!Object.values(verified.states).every((state) => state === "patched")) {
@@ -773,8 +888,39 @@ function restore(gameDir, requestedBackup) {
       throw new Error(`Backup checksum mismatch: ${source}`);
     }
   }
+  if (!Object.hasOwn(manifest.files, FILES.hdFilesIni)) {
+    throw new Error(`Backup predates the HD Mod override patch: ${backupDir}`);
+  }
+  for (const relativePath of [FILES.hdFilesIni, ...HD_OVERRIDE_FILES]) {
+    const expectedHash = manifest.files[relativePath];
+    if (expectedHash === null) {
+      continue;
+    }
+    const source = path.join(backupDir, relativePath);
+    if (
+      !expectedHash ||
+      !fs.existsSync(source) ||
+      hash(fs.readFileSync(source)) !== expectedHash
+    ) {
+      throw new Error(`Backup checksum mismatch: ${source}`);
+    }
+  }
   for (const relativePath of PATCHED_FILES) {
     fs.copyFileSync(path.join(backupDir, relativePath), path.join(gameDir, relativePath));
+  }
+  fs.copyFileSync(
+    path.join(backupDir, FILES.hdFilesIni),
+    path.join(gameDir, FILES.hdFilesIni),
+  );
+  for (const relativePath of HD_OVERRIDE_FILES) {
+    const destination = path.join(gameDir, relativePath);
+    if (manifest.files[relativePath] === null) {
+      if (fs.existsSync(destination)) {
+        fs.unlinkSync(destination);
+      }
+    } else {
+      fs.copyFileSync(path.join(backupDir, relativePath), destination);
+    }
   }
 
   const verified = inspect(gameDir);

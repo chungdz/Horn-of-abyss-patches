@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.3 - 2026-08-14
+
+- Install the patched `UN32.def` and `UN44.def` as loose resources in the HotA
+  HD compatibility pack.
+- Register both resources in `_HD3_Data/Compability/#hota/Files.ini`.
+- Back up and restore `Files.ini` and any pre-existing loose resources
+  exactly.
+- Support guarded in-place upgrades from version 1.0.2.
+
 ## 1.0.2 - 2026-08-14
 
 - Patch `UN32.def` and `UN44.def` in both `Data/H3sprite.lod` and
