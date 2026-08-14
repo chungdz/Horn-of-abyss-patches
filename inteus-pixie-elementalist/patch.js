@@ -20,6 +20,7 @@ const HD_HOTA_SPECIALTY_LAYOUT_OFFSET = 0x234dc3;
 const HD_HOTA_SPECIALTY_RESOURCE_OFFSET = 0x29ee3c;
 const PIXIE_PORTRAIT_FRAME = 120;
 const SPECIALTY_DISPLAY_RESOURCE = "IX44.def";
+const SPECIALTY_DISPLAY_FRAME_NAME = "NYX44PIX.PCX";
 const SPECIALTY_ICON_RESOURCES = [
   {
     name: "UN32.def",
@@ -493,6 +494,7 @@ function findDefFrame(definition, requestedFrame) {
           .subarray(nameOffset, nameOffset + 13)
           .toString("latin1")
           .replace(/\0.*$/, ""),
+        nameOffset,
         offsetTableEntry,
       };
     }
@@ -574,6 +576,17 @@ function decodeDefFrame(definition, requestedFrame) {
   };
 }
 
+function renameDefFrame(definition, frameIndex, frameName) {
+  if (Buffer.byteLength(frameName, "latin1") > 12) {
+    throw new Error(`DEF frame name is too long: ${frameName}`);
+  }
+  const frame = findDefFrame(definition, frameIndex);
+  const updated = Buffer.from(definition);
+  updated.fill(0, frame.nameOffset, frame.nameOffset + 13);
+  updated.write(frameName, frame.nameOffset, "latin1");
+  return updated;
+}
+
 function paletteColor(definition, paletteIndex) {
   const offset = 16 + paletteIndex * 3;
   return [
@@ -583,77 +596,57 @@ function paletteColor(definition, paletteIndex) {
   ];
 }
 
-function pixieSpecialtyPixels(creaturePortraits, specialtyIcons, iconSize) {
-  const source = decodeDefFrame(creaturePortraits, PIXIE_PORTRAIT_FRAME);
-  if (source.width !== 58 || source.height !== 64) {
-    throw new Error("Unexpected Pixie portrait dimensions.");
+function pixieSpecialtyPixels(pixieIcons, specialtyIcons, iconSize) {
+  const source = decodeDefFrame(pixieIcons, PIXIE_PORTRAIT_FRAME);
+  if (source.width !== 30 || source.height !== 32) {
+    throw new Error(
+      `Unexpected CPRSMALL Pixie dimensions: ${source.width}x${source.height}.`,
+    );
   }
-
-  const cropSize = source.width;
-  const cropLeft = 0;
-  const cropTop = Math.floor((source.height - cropSize) / 2);
+  if (iconSize < source.width || iconSize < source.height) {
+    throw new Error(`Specialty canvas is too small: ${iconSize}.`);
+  }
   const sourcePalette = Array.from({ length: 256 }, (_, index) =>
-    paletteColor(creaturePortraits, index),
+    paletteColor(pixieIcons, index),
   );
   const targetPalette = Array.from({ length: 256 }, (_, index) =>
     paletteColor(specialtyIcons, index),
   );
-  const pixels = Buffer.alloc(iconSize * iconSize);
-
-  for (let y = 0; y < iconSize; y += 1) {
-    const sourceY =
-      cropTop +
-      ((y + 0.5) * cropSize) / iconSize -
-      0.5;
-    const y0 = Math.max(cropTop, Math.floor(sourceY));
-    const y1 = Math.min(cropTop + cropSize - 1, y0 + 1);
-    const yWeight = sourceY - Math.floor(sourceY);
-
-    for (let x = 0; x < iconSize; x += 1) {
-      const sourceX =
-        cropLeft +
-        ((x + 0.5) * cropSize) / iconSize -
-        0.5;
-      const x0 = Math.max(cropLeft, Math.floor(sourceX));
-      const x1 = Math.min(cropLeft + cropSize - 1, x0 + 1);
-      const xWeight = sourceX - Math.floor(sourceX);
-      const colors = [
-        sourcePalette[source.pixels[y0 * source.width + x0]],
-        sourcePalette[source.pixels[y0 * source.width + x1]],
-        sourcePalette[source.pixels[y1 * source.width + x0]],
-        sourcePalette[source.pixels[y1 * source.width + x1]],
-      ];
-      const rgb = [0, 1, 2].map((channel) => {
-        const top =
-          colors[0][channel] * (1 - xWeight) +
-          colors[1][channel] * xWeight;
-        const bottom =
-          colors[2][channel] * (1 - xWeight) +
-          colors[3][channel] * xWeight;
-        return top * (1 - yWeight) + bottom * yWeight;
-      });
-
-      let bestIndex = 8;
-      let bestDistance = Number.POSITIVE_INFINITY;
-      for (let index = 8; index < targetPalette.length; index += 1) {
-        const color = targetPalette[index];
-        const distance =
-          (rgb[0] - color[0]) ** 2 +
-          (rgb[1] - color[1]) ** 2 +
-          (rgb[2] - color[2]) ** 2;
-        if (distance < bestDistance) {
-          bestDistance = distance;
-          bestIndex = index;
-        }
+  const paletteMap = Array.from({ length: 256 }, (_, sourceIndex) => {
+    if (sourceIndex < 8) {
+      return sourceIndex;
+    }
+    const sourceColor = sourcePalette[sourceIndex];
+    let bestIndex = 8;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    for (let targetIndex = 8; targetIndex < 256; targetIndex += 1) {
+      const targetColor = targetPalette[targetIndex];
+      const distance =
+        (sourceColor[0] - targetColor[0]) ** 2 +
+        (sourceColor[1] - targetColor[1]) ** 2 +
+        (sourceColor[2] - targetColor[2]) ** 2;
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestIndex = targetIndex;
       }
-      pixels[y * iconSize + x] = bestIndex;
+    }
+    return bestIndex;
+  });
+
+  const pixels = Buffer.alloc(iconSize * iconSize, 0);
+  const left = Math.floor((iconSize - source.width) / 2);
+  const top = Math.floor((iconSize - source.height) / 2);
+  for (let y = 0; y < source.height; y += 1) {
+    for (let x = 0; x < source.width; x += 1) {
+      const sourceIndex = source.pixels[y * source.width + x];
+      pixels[(top + y) * iconSize + left + x] = paletteMap[sourceIndex];
     }
   }
 
   return pixels;
 }
 
-function patchedSpecialtyIcons(originalIcons, creaturePortraits, resource) {
+function patchedSpecialtyIcons(originalIcons, pixieIcons, resource) {
   const icon = findDefFrame(originalIcons, HERO_ID);
   if (
     icon.name.toLowerCase() !== resource.expectedFrameName ||
@@ -666,7 +659,7 @@ function patchedSpecialtyIcons(originalIcons, creaturePortraits, resource) {
   }
 
   const pixels = pixieSpecialtyPixels(
-    creaturePortraits,
+    pixieIcons,
     originalIcons,
     resource.size,
   );
@@ -685,7 +678,7 @@ function patchedSpecialtyIcons(originalIcons, creaturePortraits, resource) {
 }
 
 function patchedSpriteArchive(originalArchive) {
-  const creaturePortraits = extractLodEntry(originalArchive, "TwCrPort.def");
+  const pixieIcons = extractLodEntry(originalArchive, "CPRSMALL.def");
   let archive = originalArchive;
   for (const resource of SPECIALTY_ICON_RESOURCES) {
     const specialtyIcons = extractLodEntry(originalArchive, resource.name);
@@ -694,7 +687,7 @@ function patchedSpriteArchive(originalArchive) {
       resource.name,
       patchedSpecialtyIcons(
         specialtyIcons,
-        creaturePortraits,
+        pixieIcons,
         resource,
       ),
     );
@@ -704,10 +697,15 @@ function patchedSpriteArchive(originalArchive) {
 
 function registeredDisplayResource(archive) {
   const sourceEntry = findLodEntry(archive, "UN44.def");
+  const display = renameDefFrame(
+    extractLodEntry(archive, "UN44.def"),
+    HERO_ID,
+    SPECIALTY_DISPLAY_FRAME_NAME,
+  );
   return addOrReplaceLodEntry(
     archive,
     SPECIALTY_DISPLAY_RESOURCE,
-    extractLodEntry(archive, "UN44.def"),
+    display,
     sourceEntry.type,
   );
 }
@@ -717,11 +715,11 @@ function spriteState(archive, originalHash) {
     return "original";
   }
   try {
-    const creaturePortraits = extractLodEntry(archive, "TwCrPort.def");
+    const pixieIcons = extractLodEntry(archive, "CPRSMALL.def");
     for (const resource of SPECIALTY_ICON_RESOURCES) {
       const specialtyIcons = extractLodEntry(archive, resource.name);
       const expected = pixieSpecialtyPixels(
-        creaturePortraits,
+        pixieIcons,
         specialtyIcons,
         resource.size,
       );
@@ -742,9 +740,14 @@ function spriteState(archive, originalHash) {
     if (!displayEntry) {
       return "legacy";
     }
+    const expectedDisplay = renameDefFrame(
+      extractLodEntry(archive, "UN44.def"),
+      HERO_ID,
+      SPECIALTY_DISPLAY_FRAME_NAME,
+    );
     if (
       !extractLodEntry(archive, SPECIALTY_DISPLAY_RESOURCE).equals(
-        extractLodEntry(archive, "UN44.def"),
+        expectedDisplay,
       )
     ) {
       return "unknown";
@@ -935,7 +938,10 @@ function displayOverrideState(gameDir, spritesExpansion) {
   }
 
   try {
-    const expected = extractLodEntry(spritesExpansion, "UN44.def");
+    const expected = extractLodEntry(
+      spritesExpansion,
+      SPECIALTY_DISPLAY_RESOURCE,
+    );
     return paths.every((relativePath) =>
       readGameFile(gameDir, relativePath).equals(expected),
     )
@@ -1262,7 +1268,10 @@ function apply(gameDir) {
       ),
     );
   }
-  const displayResource = extractLodEntry(patchedExpansion, "UN44.def");
+  const displayResource = extractLodEntry(
+    patchedExpansion,
+    SPECIALTY_DISPLAY_RESOURCE,
+  );
   for (const relativePath of [
     FILES.displayResource,
     HD_DISPLAY_RESOURCE,

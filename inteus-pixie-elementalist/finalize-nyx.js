@@ -20,6 +20,10 @@ const files = {
   hdFilesIni: path.join("_HD3_Data", "Compability", "#hota", "Files.ini"),
   hdFilesIni15: path.join("_HD3_Data", "Compability", "#hota15", "Files.ini"),
 };
+const runtimeHookPath = path.join("_HD3_Data", "Common", "setseed.dll");
+const runtimeHookAsset = fs.readFileSync(
+  path.join(__dirname, "assets", "NyxRuntimeFix.dll"),
+);
 const portraitNames = ["HPL004EL.pcx", "HPS004EL.pcx"];
 const portraitAssets = portraitNames.map((name) =>
   fs.readFileSync(path.join(__dirname, "assets", name)),
@@ -29,7 +33,23 @@ const portraitBmpNames = portraitNames.map((name) =>
 );
 const scenarioName = "IX32.def";
 const scenarioLoosePath = path.join("Data", scenarioName);
-const specialtyNames = ["UN32.def", "UN44.def", scenarioName, "IX44.def"];
+const displayName = "IX44.def";
+const displayLoosePath = path.join("Data", displayName);
+const specialtyVariants = [
+  {
+    sourceName: "UN32.def",
+    targetName: scenarioName,
+    frameName: "NYX32PIX.PCX",
+    size: 32,
+  },
+  {
+    sourceName: "UN44.def",
+    targetName: displayName,
+    frameName: "NYX44PIX.PCX",
+    size: 44,
+  },
+];
+const specialtyNames = ["UN32.def", "UN44.def", scenarioName, displayName];
 const scenarioStringOffset = 0x2817dc;
 const scenarioDllStringOffset = 0x295ff0;
 const originalScenarioName = Buffer.from("un32.def\0", "latin1");
@@ -194,6 +214,226 @@ function addOrReplaceLodEntry(archive, name, replacement, type = 0) {
   return Buffer.concat([updated, replacement]);
 }
 
+function findDefFrame(definition, requestedFrame) {
+  if (
+    definition.length < 784 ||
+    definition.readUInt32LE(0) !== 0x47
+  ) {
+    throw new Error("Invalid DEF resource.");
+  }
+  const groupCount = definition.readUInt32LE(12);
+  let directoryOffset = 784;
+  let firstFrame = 0;
+
+  for (let group = 0; group < groupCount; group += 1) {
+    const frameCount = definition.readUInt32LE(directoryOffset + 4);
+    const namesOffset = directoryOffset + 16;
+    const offsetsOffset = namesOffset + frameCount * 13;
+    const nextDirectoryOffset = offsetsOffset + frameCount * 4;
+    if (nextDirectoryOffset > definition.length) {
+      throw new Error("Invalid DEF frame directory.");
+    }
+    if (
+      requestedFrame >= firstFrame &&
+      requestedFrame < firstFrame + frameCount
+    ) {
+      const localFrame = requestedFrame - firstFrame;
+      return {
+        frameOffset: definition.readUInt32LE(
+          offsetsOffset + localFrame * 4,
+        ),
+        nameOffset: namesOffset + localFrame * 13,
+        offsetTableEntry: offsetsOffset + localFrame * 4,
+      };
+    }
+    firstFrame += frameCount;
+    directoryOffset = nextDirectoryOffset;
+  }
+  throw new Error(`DEF frame not found: ${requestedFrame}`);
+}
+
+function renameDefFrame(definition, frameIndex, frameName) {
+  if (Buffer.byteLength(frameName, "latin1") > 12) {
+    throw new Error(`DEF frame name is too long: ${frameName}`);
+  }
+  const frame = findDefFrame(definition, frameIndex);
+  const updated = Buffer.from(definition);
+  updated.fill(0, frame.nameOffset, frame.nameOffset + 13);
+  updated.write(frameName, frame.nameOffset, "latin1");
+  return updated;
+}
+
+function decodeDefFrame(definition, requestedFrame) {
+  const location = findDefFrame(definition, requestedFrame);
+  const frameOffset = location.frameOffset;
+  if (frameOffset + 32 > definition.length) {
+    throw new Error(`Truncated DEF frame header: ${requestedFrame}`);
+  }
+  const compression = definition.readUInt32LE(frameOffset + 4);
+  const width = definition.readUInt32LE(frameOffset + 16);
+  const height = definition.readUInt32LE(frameOffset + 20);
+  const dataOffset = frameOffset + 32;
+  const pixels = Buffer.alloc(width * height);
+
+  if (compression === 0) {
+    const end = dataOffset + pixels.length;
+    if (end > definition.length) {
+      throw new Error(`Truncated DEF frame data: ${requestedFrame}`);
+    }
+    definition.copy(pixels, 0, dataOffset, end);
+  } else if (compression === 1) {
+    for (let row = 0; row < height; row += 1) {
+      const rowTableEntry = dataOffset + row * 4;
+      if (rowTableEntry + 4 > definition.length) {
+        throw new Error(`Truncated DEF row table: ${requestedFrame}`);
+      }
+      let cursor = dataOffset + definition.readUInt32LE(rowTableEntry);
+      let column = 0;
+      while (column < width) {
+        if (cursor + 2 > definition.length) {
+          throw new Error(`Truncated DEF row data: ${requestedFrame}`);
+        }
+        const code = definition[cursor];
+        const runLength = definition[cursor + 1] + 1;
+        cursor += 2;
+        if (column + runLength > width) {
+          throw new Error(`Invalid DEF run length: ${requestedFrame}`);
+        }
+        if (code === 0xff) {
+          if (cursor + runLength > definition.length) {
+            throw new Error(`Truncated DEF literal run: ${requestedFrame}`);
+          }
+          definition.copy(
+            pixels,
+            row * width + column,
+            cursor,
+            cursor + runLength,
+          );
+          cursor += runLength;
+        } else {
+          pixels.fill(
+            code,
+            row * width + column,
+            row * width + column + runLength,
+          );
+        }
+        column += runLength;
+      }
+    }
+  } else {
+    throw new Error(
+      `Unsupported DEF compression ${compression} in frame ${requestedFrame}.`,
+    );
+  }
+
+  return { ...location, height, pixels, width };
+}
+
+function paletteColor(definition, paletteIndex) {
+  const offset = 16 + paletteIndex * 3;
+  return [
+    definition[offset],
+    definition[offset + 1],
+    definition[offset + 2],
+  ];
+}
+
+function pixieSpecialtyPixels(pixieIcons, specialtyIcons, iconSize) {
+  const source = decodeDefFrame(pixieIcons, 120);
+  if (source.width !== 30 || source.height !== 32) {
+    throw new Error(
+      `Unexpected CPRSMALL Pixie dimensions: ${source.width}x${source.height}.`,
+    );
+  }
+  if (iconSize < source.width || iconSize < source.height) {
+    throw new Error(`Specialty canvas is too small: ${iconSize}.`);
+  }
+
+  const sourcePalette = Array.from({ length: 256 }, (_, index) =>
+    paletteColor(pixieIcons, index),
+  );
+  const targetPalette = Array.from({ length: 256 }, (_, index) =>
+    paletteColor(specialtyIcons, index),
+  );
+  const paletteMap = Array.from({ length: 256 }, (_, sourceIndex) => {
+    if (sourceIndex < 8) {
+      return sourceIndex;
+    }
+    const sourceColor = sourcePalette[sourceIndex];
+    let bestIndex = 8;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    for (let targetIndex = 8; targetIndex < 256; targetIndex += 1) {
+      const targetColor = targetPalette[targetIndex];
+      const distance =
+        (sourceColor[0] - targetColor[0]) ** 2 +
+        (sourceColor[1] - targetColor[1]) ** 2 +
+        (sourceColor[2] - targetColor[2]) ** 2;
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestIndex = targetIndex;
+      }
+    }
+    return bestIndex;
+  });
+
+  const pixels = Buffer.alloc(iconSize * iconSize, 0);
+  const left = Math.floor((iconSize - source.width) / 2);
+  const top = Math.floor((iconSize - source.height) / 2);
+  for (let y = 0; y < source.height; y += 1) {
+    for (let x = 0; x < source.width; x += 1) {
+      const sourceIndex = source.pixels[y * source.width + x];
+      pixels[(top + y) * iconSize + left + x] = paletteMap[sourceIndex];
+    }
+  }
+  return pixels;
+}
+
+function replaceDefFramePixels(definition, frameIndex, size, pixels) {
+  if (pixels.length !== size * size) {
+    throw new Error(`Unexpected ${size}x${size} specialty pixel count.`);
+  }
+  const location = findDefFrame(definition, frameIndex);
+  const current = decodeDefFrame(definition, frameIndex);
+  if (
+    current.width === size &&
+    current.height === size &&
+    current.pixels.equals(pixels)
+  ) {
+    return definition;
+  }
+  const frame = Buffer.alloc(32 + pixels.length);
+  frame.writeUInt32LE(pixels.length, 0);
+  frame.writeUInt32LE(0, 4);
+  frame.writeUInt32LE(size, 8);
+  frame.writeUInt32LE(size, 12);
+  frame.writeUInt32LE(size, 16);
+  frame.writeUInt32LE(size, 20);
+  pixels.copy(frame, 32);
+
+  const updated = Buffer.from(definition);
+  updated.writeUInt32LE(updated.length, location.offsetTableEntry);
+  return Buffer.concat([updated, frame]);
+}
+
+function buildSpecialtyDef(archive, variant, uniqueName) {
+  const pixieIcons = extractLodEntry(archive, "CPRSMALL.def");
+  const specialtyIcons = extractLodEntry(archive, variant.sourceName);
+  const pixels = pixieSpecialtyPixels(
+    pixieIcons,
+    specialtyIcons,
+    variant.size,
+  );
+  const patched = replaceDefFramePixels(
+    specialtyIcons,
+    140,
+    variant.size,
+    pixels,
+  );
+  return uniqueName
+    ? renameDefFrame(patched, 140, variant.frameName)
+    : patched;
+}
+
 function patchScenarioLookup(executable) {
   const current = executable.subarray(
     scenarioStringOffset,
@@ -210,14 +450,32 @@ function patchScenarioLookup(executable) {
   return updated;
 }
 
-function patchScenarioArchive(archive) {
-  const source = findLodEntry(archive, "UN32.def");
-  return addOrReplaceLodEntry(
-    archive,
-    scenarioName,
-    extractLodEntry(archive, "UN32.def"),
-    archive.readUInt32LE(source.directoryOffset + 24),
-  );
+function patchSpecialtyArchive(archive) {
+  let updated = archive;
+  for (const variant of specialtyVariants) {
+    const source = findLodEntry(updated, variant.sourceName);
+    const originalSource = extractLodEntry(updated, variant.sourceName);
+    const patchedSource = buildSpecialtyDef(
+      updated,
+      variant,
+      false,
+    );
+    if (!originalSource.equals(patchedSource)) {
+      updated = replaceLodEntry(updated, variant.sourceName, patchedSource);
+    }
+    const replacement = renameDefFrame(
+      patchedSource,
+      140,
+      variant.frameName,
+    );
+    updated = addOrReplaceLodEntry(
+      updated,
+      variant.targetName,
+      replacement,
+      updated.readUInt32LE(source.directoryOffset + 24),
+    );
+  }
+  return updated;
 }
 
 function patchPortraits(archive) {
@@ -322,9 +580,33 @@ function patchFilesIni(buffer, namesToAdd, namesToRemove = []) {
 const originals = Object.fromEntries(
   Object.values(files).map((relativePath) => [relativePath, read(relativePath)]),
 );
-const scenarioDef = extractLodEntry(
+if (
+  fs.existsSync(path.join(gameDir, runtimeHookPath)) &&
+  !read(runtimeHookPath).equals(runtimeHookAsset)
+) {
+  throw new Error(
+    `${runtimeHookPath} is occupied by another DLL; refusing to overwrite it.`,
+  );
+}
+const scenarioSourceDef = buildSpecialtyDef(
   originals[files.spritesExpansion],
-  "UN32.def",
+  specialtyVariants[0],
+  false,
+);
+const scenarioDef = renameDefFrame(
+  scenarioSourceDef,
+  140,
+  specialtyVariants[0].frameName,
+);
+const displaySourceDef = buildSpecialtyDef(
+  originals[files.spritesExpansion],
+  specialtyVariants[1],
+  false,
+);
+const displayDef = renameDefFrame(
+  displaySourceDef,
+  140,
+  specialtyVariants[1].frameName,
 );
 const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..*$/, "").replace("T", "-");
 const backupDir = path.join(gameDir, "ConfluxElementalistPatch", "backups", stamp);
@@ -336,7 +618,7 @@ for (const [relativePath, buffer] of Object.entries(originals)) {
   fs.writeFileSync(destination, buffer);
   manifest.files[relativePath] = hash(buffer);
 }
-for (const relativePath of [scenarioLoosePath]) {
+for (const relativePath of [scenarioLoosePath, displayLoosePath]) {
   const source = path.join(gameDir, relativePath);
   if (!fs.existsSync(source)) {
     manifest.files[relativePath] = null;
@@ -347,6 +629,18 @@ for (const relativePath of [scenarioLoosePath]) {
   const buffer = fs.readFileSync(source);
   fs.writeFileSync(destination, buffer);
   manifest.files[relativePath] = hash(buffer);
+}
+{
+  const source = path.join(gameDir, runtimeHookPath);
+  if (!fs.existsSync(source)) {
+    manifest.files[runtimeHookPath] = null;
+  } else {
+    const destination = path.join(backupDir, runtimeHookPath);
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    const buffer = fs.readFileSync(source);
+    fs.writeFileSync(destination, buffer);
+    manifest.files[runtimeHookPath] = hash(buffer);
+  }
 }
 for (const pack of ["#hota", "#hota15"]) {
   for (const name of [
@@ -380,11 +674,11 @@ writeIfChanged(files.dll, patchDll(originals[files.dll]));
 writeIfChanged(files.language, patchLanguage(originals[files.language]));
 writeIfChanged(
   files.spritesBase,
-  patchScenarioArchive(originals[files.spritesBase]),
+  patchSpecialtyArchive(originals[files.spritesBase]),
 );
 writeIfChanged(
   files.spritesExpansion,
-  patchScenarioArchive(originals[files.spritesExpansion]),
+  patchSpecialtyArchive(originals[files.spritesExpansion]),
 );
 writeIfChanged(files.bitmap, patchPortraits(originals[files.bitmap]));
 writeIfChanged(
@@ -408,6 +702,28 @@ writeIfChanged(
   ),
 );
 fs.writeFileSync(path.join(gameDir, scenarioLoosePath), scenarioDef);
+fs.writeFileSync(path.join(gameDir, displayLoosePath), displayDef);
+fs.writeFileSync(path.join(gameDir, runtimeHookPath), runtimeHookAsset);
+fs.writeFileSync(
+  path.join(
+    gameDir,
+    "_HD3_Data",
+    "Compability",
+    "#hota",
+    specialtyVariants[0].sourceName,
+  ),
+  scenarioSourceDef,
+);
+fs.writeFileSync(
+  path.join(
+    gameDir,
+    "_HD3_Data",
+    "Compability",
+    "#hota",
+    specialtyVariants[1].sourceName,
+  ),
+  displaySourceDef,
+);
 fs.writeFileSync(
   path.join(
     gameDir,
@@ -417,6 +733,16 @@ fs.writeFileSync(
     scenarioName,
   ),
   scenarioDef,
+);
+fs.writeFileSync(
+  path.join(
+    gameDir,
+    "_HD3_Data",
+    "Compability",
+    "#hota",
+    displayName,
+  ),
+  displayDef,
 );
 for (const pack of ["#hota", "#hota15"]) {
   for (const name of portraitNames) {
@@ -469,16 +795,40 @@ if (!installedDllScenario.equals(patchedScenarioName)) {
 }
 for (const relativePath of [files.spritesBase, files.spritesExpansion]) {
   const archive = read(relativePath);
-  if (
-    !extractLodEntry(archive, scenarioName).equals(
-      extractLodEntry(archive, "UN32.def"),
-    )
-  ) {
-    throw new Error(`Scenario DEF verification failed: ${relativePath}`);
+  for (const variant of specialtyVariants) {
+    const expected = renameDefFrame(
+      extractLodEntry(archive, variant.sourceName),
+      140,
+      variant.frameName,
+    );
+    if (!extractLodEntry(archive, variant.targetName).equals(expected)) {
+      throw new Error(
+        `Specialty DEF verification failed: ${relativePath}/${variant.targetName}`,
+      );
+    }
+    const actual = decodeDefFrame(
+      extractLodEntry(archive, variant.targetName),
+      140,
+    );
+    const transparentPixels = actual.pixels.reduce(
+      (count, pixel) => count + (pixel < 8 ? 1 : 0),
+      0,
+    );
+    if (transparentPixels === 0) {
+      throw new Error(
+        `Specialty transparency verification failed: ${relativePath}/${variant.targetName}`,
+      );
+    }
   }
 }
 if (!read(scenarioLoosePath).equals(scenarioDef)) {
   throw new Error(`Scenario DEF verification failed: ${scenarioLoosePath}`);
+}
+if (!read(displayLoosePath).equals(displayDef)) {
+  throw new Error(`Specialty DEF verification failed: ${displayLoosePath}`);
+}
+if (!read(runtimeHookPath).equals(runtimeHookAsset)) {
+  throw new Error(`Runtime hook verification failed: ${runtimeHookPath}`);
 }
 for (const relativePath of [files.bitmap, files.bitmapExpansion]) {
   const archive = read(relativePath);

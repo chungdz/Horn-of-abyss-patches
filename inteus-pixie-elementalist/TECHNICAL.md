@@ -70,28 +70,26 @@ picture in standard selectors; `UN44.def` supplies the 44x44 picture in
 standard larger specialty views.
 
 Both `Data/H3sprite.lod` and `Data/H3ab_spr.lod` contain same-named copies of
-these resources. Version 1.0.2 patches both copies rather than depending on
+these resources. The finalizer patches both copies rather than depending on
 runtime archive-resolution order.
 
-The patcher:
+The final image generator:
 
-1. Extracts `TwCrPort.def`, `UN32.def`, and `UN44.def` from each sprite
+1. Extracts `CPRSMALL.def`, `UN32.def`, and `UN44.def` from each sprite
    archive.
-2. Decodes each archive's `TwCrPort.def` frame 120, the legacy-atlas Pixie
-   portrait.
-3. Takes a centered 58x58 crop and scales it to 32x32 and 44x44 with bilinear
-   sampling.
-4. Maps each result to its target DEF palette, excluding reserved indices
-   0-7.
-5. Appends an uncompressed frame to each DEF and redirects only frame 140.
-6. Appends both updated DEFs and redirects only their LOD directory entries
-   in each archive.
-7. Adds an `IX44.def` entry containing the patched 44x44 atlas to both sprite
-   LOD directories.
-8. Extracts the patched resources to
-   `_HD3_Data/Compability/#hota/` and registers them in `Files.ini`.
-9. Redirects the normal executable specialty display to the unique
-   `IX44.def` name so it cannot reuse a previously cached `UN44.def`.
+2. Decodes `CPRSMALL.def` frame 120, internal name `CPrS118E.pcx`. This is the
+   exact transparent Pixie sprite used by the random-map popup and measures
+   30x32 pixels.
+3. Preserves special DEF palette indices 0-7, including transparency and
+   shadow semantics. Regular colors are mapped to the nearest target-atlas
+   palette index from 8 through 255.
+4. Places the sprite without scaling at `(1,0)` on a transparent 32x32 canvas
+   and at `(7,6)` on a transparent 44x44 canvas.
+5. Appends each result as an uncompressed frame and redirects only frame 140.
+6. Adds isolated `IX32.def` and `IX44.def` copies whose frame 140 internal
+   names are `NYX32PIX.PCX` and `NYX44PIX.PCX`.
+7. Installs all four atlases in both HD compatibility packs and registers
+   them in `Files.ini`.
 
 No other hero's specialty frame is changed.
 
@@ -241,8 +239,56 @@ Version 1.3.2 redirects this shared HD DLL string to `ix32.def` as well. The
 new atlas is byte-identical to `UN32.def` except for the already-patched Nyx
 frame, so the change preserves every other hero. The finalizer guards both
 the original and already-patched DLL states and includes `HD_HOTA.dll` in its
-timestamped backup. In-game confirmation of this second-stage redirection is
-pending.
+timestamped backup. In-game testing still showed Bloodlust in both standard
+views.
+
+A read-only runtime trace then hooked image construction at `0x004EA800`.
+Neither the standard scenario selector nor the entered scenario's hero screen
+called that constructor for the specialty picture. Both paths therefore use
+already-loaded DEF objects and change frames directly.
+
+The final fix loads these four resources through the game's own loader at
+`0x0055C9C0`:
+
+```text
+UN32.def
+IX32.def
+UN44.def
+IX44.def
+```
+
+The relevant 32-bit runtime layouts were validated before writing:
+
+```text
+H3LoadedDef = 0x38 bytes
+H3LoadedDefGroup = 0x0C bytes
+H3LoadedDefFrame = 0x48 bytes
+```
+
+After a 1.5-second startup delay, the custom DLL changes only frame-table
+pointer 140 in loaded `UN32.def` and `UN44.def`. Each target receives the
+corresponding frame pointer from `IX32.def` or `IX44.def`. Reads, writes, and
+the resulting pointer values are checked with `ReadProcessMemory` and
+`WriteProcessMemory`; the DLL records the result in
+`_HD3_Data/Common/NyxRuntimeFix.log`.
+
+The first runtime attempt still displayed Bloodlust. Its log revealed that
+the separate `UN` and `IX` DEF objects had identical frame-140 pointers.
+Although the atlases had different resource names, their copied frame names
+were still `Un32Lust.PCX` and `Un44Lust.PCX`. Heroes III cached those frames
+by the internal PCX name and reused the already-loaded Bloodlust objects.
+
+Renaming only the isolated frame entries to `NYX32PIX.PCX` and
+`NYX44PIX.PCX` produced distinct source pointers. The next runtime log
+reported both frame-table swaps as patched, and in-game testing confirmed the
+Pixie picture in both the standard scenario hero selector and the entered
+scenario's hero screen.
+
+HotA disables general HD Mod plugin-directory scanning with executable flag
+`0x8`. The verified optional loader path is
+`_HD3_Data/Common/setseed.dll`. The finalizer installs the reviewed custom
+runtime DLL there, backs up any previous state, verifies its SHA-256, and
+refuses to overwrite an unrelated DLL.
 
 An earlier experimental rewrite of the HD portrait loader was reverted. It
 crashed at `HD_HOTA.dll+0x23516A` while reading `0x9090911C`. The runtime
@@ -279,4 +325,14 @@ probe later showed that loader rewriting was unnecessary.
   use the isolated scenario resource
 - Verification that the sole `HD_HOTA.dll` `un32.def` string and all four of
   its image-constructor references use the isolated resource
-- In-game verification of the standard scenario selector remains pending
+- Runtime constructor trace proving that the two standard specialty views
+  bypass the expected image-constructor path
+- Runtime logs verifying distinct `UN`/`IX` DEF objects, the initial
+  same-name frame-cache collision, unique replacement frame names, and both
+  successful frame-table swaps
+- In-game verification of Pixie pictures in the standard scenario selector
+  and the entered scenario's hero screen
+- Installed runtime DLL hash verification:
+  `be7fb2e8a715b3abaa80eee4d6f24b6e19279c5c1dd9c624f620be396b3dab2d`
+- Transparent Pixie frame verification: 30x32 source at `(1,0)` in the 32x32
+  atlas and `(7,6)` in the 44x44 atlas, with special palette indices retained

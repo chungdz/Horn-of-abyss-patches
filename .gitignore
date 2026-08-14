@@ -1,5 +1,6 @@
 **/backups/
 *.dll
+!inteus-pixie-elementalist/assets/NyxRuntimeFix.dll
 *.exe
 *.lod
 *.snd
@@ -8,4 +9,3 @@
 node_modules/
 .DS_Store
 Thumbs.db
-

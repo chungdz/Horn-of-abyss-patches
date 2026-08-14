@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.4.0 - 2026-08-14
+
+- Trace the standard scenario and in-game specialty paths at runtime and
+  confirm that neither uses the previously patched image-constructor path.
+- Add a custom runtime fix that replaces only loaded frame 140 in `UN32.def`
+  and `UN44.def` with the corresponding `IX32.def` and `IX44.def` frames.
+- Identify Heroes III's per-frame cache collision: copied atlases initially
+  reused the internal names `Un32Lust.PCX` and `Un44Lust.PCX`, so the engine
+  returned the already-cached Bloodlust frame.
+- Give the replacement frames unique internal names `NYX32PIX.PCX` and
+  `NYX44PIX.PCX`. In-game testing confirmed Pixie pictures in both standard
+  scenario hero selection and the entered scenario's hero screen.
+- Install the reviewed runtime DLL through HD Mod's optional `setseed.dll`
+  loader slot, back it up, verify its hash, and refuse to overwrite an
+  unrelated DLL.
+- Remove the Conflux creature-portrait background. Both specialty atlases now
+  use the exact transparent 30x32 `CPRSMALL.def` frame 120 shown in the
+  random-map popup, centered without scaling on 32x32 and 44x44 canvases.
+- Preserve DEF special palette indices 0-7 and verify transparency, unique
+  frame names, dimensions, and sprite bounds after installation.
+- Update `patch.js` generation and status inspection to recognize the
+  transparent `CPRSMALL.def` image and uniquely named `IX44.def` frame.
+
 ## 1.3.2 - 2026-08-14
 
 - Record that the version 1.3.1 executable-only `IX32.def` redirection did not
