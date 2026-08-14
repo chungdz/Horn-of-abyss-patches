@@ -47,11 +47,18 @@ const FILES = {
   spritesBase: path.join("Data", "H3sprite.lod"),
   spritesExpansion: path.join("Data", "H3ab_spr.lod"),
   bitmap: path.join("Data", "H3bitmap.lod"),
+  bitmapExpansion: path.join("Data", "H3ab_bmp.lod"),
   displayResource: path.join("Data", SPECIALTY_DISPLAY_RESOURCE),
   hdFilesIni: path.join(
     "_HD3_Data",
     "Compability",
     "#hota",
+    "Files.ini",
+  ),
+  hdFilesIni15: path.join(
+    "_HD3_Data",
+    "Compability",
+    "#hota15",
     "Files.ini",
   ),
 };
@@ -67,6 +74,28 @@ const HD_DISPLAY_RESOURCE = path.join(
   "#hota",
   SPECIALTY_DISPLAY_RESOURCE,
 );
+const GENERATED_PATCH_FILES = [
+  path.join("Data", "IX32.def"),
+  path.join("Data", "IX44.def"),
+  ...["#hota", "#hota15"].flatMap((pack) =>
+    [
+      "UN32.def",
+      "UN44.def",
+      "IX32.def",
+      "IX44.def",
+      "HPL004EL.pcx",
+      "HPS004EL.pcx",
+      "HPL004EL.bmp",
+      "HPS004EL.bmp",
+    ].map((name) =>
+      path.join("_HD3_Data", "Compability", pack, name),
+    ),
+  ),
+  path.join("_HD3_Data", "Common", "setseed.dll"),
+  path.join("_HD3_Data", "Common", "NyxImageTrace.log"),
+  path.join("_HD3_Data", "Common", "NyxRuntimeFix.log"),
+  path.join("_HD3_Data", "Common", "NyxRuntimeProbe.log"),
+];
 
 const ORIGINAL_HASHES = {
   [FILES.exe]: "b5f2f793af0986050fb41df7209c25d861ae0f837af52bb3bd6864ba4de84f41",
@@ -75,6 +104,16 @@ const ORIGINAL_HASHES = {
   [FILES.language]: "f4ba08f4adfcfb3dcffdc8fa2063307ff2a6caa48212b11073ef43dc73d3047e",
   [FILES.spritesBase]: "57caf2c50573f33a0d91e4222e51d3a73c136d44decf59dde21cacad88fe5d66",
   [FILES.spritesExpansion]: "e0d5003742c8602827ef409966784483dece6eedde76aa2cfeee26cb12d25d67",
+};
+const ORIGINAL_AUXILIARY_HASHES = {
+  [FILES.bitmap]: "774cbfa7cfed6713ec80c48f8619a258dac14260e4f85faeebb29c053950a5a8",
+  [FILES.bitmapExpansion]: "3cc4256e8844b3cd0af2706431dee320848bd1630b9f6c6022f6d4c78780f347",
+  [FILES.hdFilesIni]: "1f3b7af922efccfd6273f8ad98c967fff764852ec0aeb900d9df58b0d4e944dc",
+  [FILES.hdFilesIni15]: "9f21a6bc57c9462d405caba93687c8b1b94337dbbc94b8773727ecd2cb81f155",
+};
+const ORIGINAL_BASELINE_HASHES = {
+  ...ORIGINAL_HASHES,
+  ...ORIGINAL_AUXILIARY_HASHES,
 };
 
 const PATCHED_FILES = [
@@ -1739,6 +1778,179 @@ function safeManifestPath(root, relativePath) {
   return path.join(root, normalized);
 }
 
+function normalizedManifestPath(relativePath) {
+  return relativePath.replace(/\\/g, "/").replace(/^\.\/+/, "").toLowerCase();
+}
+
+function backupManifests(backupRoot) {
+  if (!fs.existsSync(backupRoot)) {
+    throw new Error(`Patch backup directory not found: ${backupRoot}`);
+  }
+  return fs
+    .readdirSync(backupRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => path.join(backupRoot, entry.name))
+    .sort()
+    .map((backupDir) => {
+      const manifestPath = path.join(backupDir, "manifest.json");
+      if (!fs.existsSync(manifestPath)) {
+        return null;
+      }
+      return {
+        backupDir,
+        manifest: JSON.parse(fs.readFileSync(manifestPath, "utf8")),
+      };
+    })
+    .filter(Boolean);
+}
+
+function findOriginalBackupSources(backupRoot) {
+  const manifests = backupManifests(backupRoot);
+  const sources = {};
+  for (const [relativePath, expectedHash] of Object.entries(
+    ORIGINAL_BASELINE_HASHES,
+  )) {
+    const normalized = normalizedManifestPath(relativePath);
+    for (const { backupDir, manifest } of manifests) {
+      const entry = Object.entries(manifest.files || {}).find(
+        ([manifestPath]) =>
+          normalizedManifestPath(manifestPath) === normalized,
+      );
+      if (!entry || entry[1] !== expectedHash) {
+        continue;
+      }
+      const source = safeManifestPath(backupDir, relativePath);
+      if (
+        fs.existsSync(source) &&
+        hash(fs.readFileSync(source)) === expectedHash
+      ) {
+        sources[relativePath] = source;
+        break;
+      }
+    }
+    if (!sources[relativePath]) {
+      throw new Error(
+        `No checksum-matched original backup was found for ${relativePath}.`,
+      );
+    }
+  }
+  return sources;
+}
+
+function createOriginalRestoreSafetyBackup(gameDir) {
+  const backupDir = path.join(
+    gameDir,
+    "ConfluxElementalistPatch",
+    "backups",
+    `${timestamp()}-original-restore`,
+  );
+  const manifest = {
+    patch: "Nyx Pixie Elementalist original-restore safety backup",
+    createdAt: new Date().toISOString(),
+    files: {},
+  };
+  const relativePaths = [
+    ...Object.keys(ORIGINAL_BASELINE_HASHES),
+    ...GENERATED_PATCH_FILES,
+  ];
+  fs.mkdirSync(backupDir, { recursive: true });
+  for (const relativePath of relativePaths) {
+    const source = safeManifestPath(gameDir, relativePath);
+    if (!fs.existsSync(source)) {
+      manifest.files[relativePath] = null;
+      continue;
+    }
+    const destination = safeManifestPath(backupDir, relativePath);
+    const data = fs.readFileSync(source);
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    fs.writeFileSync(destination, data);
+    manifest.files[relativePath] = hash(data);
+  }
+  fs.writeFileSync(
+    path.join(backupDir, "manifest.json"),
+    `${JSON.stringify(manifest, null, 2)}\n`,
+  );
+  return backupDir;
+}
+
+function restoreOriginal(gameDir, requestedBackupRoot) {
+  assertHotAVersion(gameDir);
+  const backupRoot = requestedBackupRoot
+    ? path.resolve(requestedBackupRoot)
+    : path.join(gameDir, "ConfluxElementalistPatch", "backups");
+  const sources = findOriginalBackupSources(backupRoot);
+  const runtimeHook = safeManifestPath(
+    gameDir,
+    path.join("_HD3_Data", "Common", "setseed.dll"),
+  );
+  const runtimeHookHash =
+    "be7fb2e8a715b3abaa80eee4d6f24b6e19279c5c1dd9c624f620be396b3dab2d";
+  if (
+    fs.existsSync(runtimeHook) &&
+    hash(fs.readFileSync(runtimeHook)) !== runtimeHookHash
+  ) {
+    throw new Error(
+      `${runtimeHook} is not the Nyx runtime DLL; refusing to remove it.`,
+    );
+  }
+
+  const safetyBackup = createOriginalRestoreSafetyBackup(gameDir);
+  try {
+    for (const [relativePath, expectedHash] of Object.entries(
+      ORIGINAL_BASELINE_HASHES,
+    )) {
+      const destination = safeManifestPath(gameDir, relativePath);
+      const data = fs.readFileSync(sources[relativePath]);
+      if (hash(data) !== expectedHash) {
+        throw new Error(`Original backup changed during restore: ${relativePath}`);
+      }
+      fs.mkdirSync(path.dirname(destination), { recursive: true });
+      fs.writeFileSync(destination, data);
+    }
+    for (const relativePath of GENERATED_PATCH_FILES) {
+      const destination = safeManifestPath(gameDir, relativePath);
+      if (fs.existsSync(destination)) {
+        fs.unlinkSync(destination);
+      }
+    }
+
+    for (const [relativePath, expectedHash] of Object.entries(
+      ORIGINAL_BASELINE_HASHES,
+    )) {
+      const destination = safeManifestPath(gameDir, relativePath);
+      if (
+        !fs.existsSync(destination) ||
+        hash(fs.readFileSync(destination)) !== expectedHash
+      ) {
+        throw new Error(`Original restore verification failed: ${relativePath}`);
+      }
+    }
+    for (const relativePath of GENERATED_PATCH_FILES) {
+      if (fs.existsSync(safeManifestPath(gameDir, relativePath))) {
+        throw new Error(
+          `Generated patch file remains after restore: ${relativePath}`,
+        );
+      }
+    }
+
+    const verified = inspect(gameDir);
+    if (
+      !Object.values(verified.states).every((state) => state === "original")
+    ) {
+      throw new Error(
+        `Restored files do not report an original state:\n${JSON.stringify(verified.states, null, 2)}`,
+      );
+    }
+  } catch (error) {
+    throw new Error(
+      `${error.message}\nThe pre-restore patched state is backed up at ${safetyBackup}.`,
+    );
+  }
+
+  console.log("Restored the original HotA 1.8.0 Inteus state.");
+  console.log(`Patched-state safety backup: ${safetyBackup}`);
+}
+
 function restoreFinalizerBackup(gameDir, backupDir, manifest) {
   const entries = Object.entries(manifest.files);
   if (!entries.length) {
@@ -1794,7 +2006,11 @@ function restore(gameDir, requestedBackup) {
   }
   const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
 
-  if (manifest.patch === "Nyx Pixie Elementalist finalizer") {
+  if (
+    manifest.patch === "Nyx Pixie Elementalist finalizer" ||
+    manifest.patch ===
+      "Nyx Pixie Elementalist original-restore safety backup"
+  ) {
     restoreFinalizerBackup(gameDir, backupDir, manifest);
     console.log(`Restored files from ${backupDir}`);
     return;
@@ -1894,6 +2110,7 @@ function parseArguments(argv) {
       ? path.resolve(process.env.HOTA_GAME_DIR)
       : defaultGameDir(),
     backup: null,
+    backupRoot: null,
   };
   const args = [...argv];
   if (args[0] && !args[0].startsWith("--")) {
@@ -1905,6 +2122,8 @@ function parseArguments(argv) {
       options.gameDir = path.resolve(args.shift());
     } else if (option === "--backup") {
       options.backup = args.shift();
+    } else if (option === "--backup-root") {
+      options.backupRoot = path.resolve(args.shift());
     } else {
       throw new Error(`Unknown argument: ${option}`);
     }
@@ -1918,10 +2137,15 @@ try {
     apply(options.gameDir);
   } else if (options.command === "restore") {
     restore(options.gameDir, options.backup);
+  } else if (options.command === "restore-original") {
+    restoreOriginal(options.gameDir, options.backupRoot);
   } else if (options.command === "status") {
     showStatus(options.gameDir);
   } else {
-    fail("Usage: node patch.js [status|apply|restore] [--game-dir PATH] [--backup PATH]");
+    fail(
+      "Usage: node patch.js [status|apply|restore|restore-original] " +
+        "[--game-dir PATH] [--backup PATH] [--backup-root PATH]",
+    );
   }
 } catch (error) {
   fail(error.message);
