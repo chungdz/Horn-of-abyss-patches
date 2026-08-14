@@ -1304,6 +1304,64 @@ function latestBackup(gameDir) {
   return path.join(backupRoot, backups[backups.length - 1]);
 }
 
+function safeManifestPath(root, relativePath) {
+  const normalized = path.normalize(relativePath);
+  if (
+    path.isAbsolute(relativePath) ||
+    normalized === "." ||
+    normalized === ".." ||
+    normalized.startsWith(`..${path.sep}`)
+  ) {
+    throw new Error(`Unsafe backup manifest path: ${relativePath}`);
+  }
+  return path.join(root, normalized);
+}
+
+function restoreFinalizerBackup(gameDir, backupDir, manifest) {
+  const entries = Object.entries(manifest.files);
+  if (!entries.length) {
+    throw new Error(`Backup manifest contains no files: ${backupDir}`);
+  }
+
+  for (const [relativePath, expectedHash] of entries) {
+    safeManifestPath(gameDir, relativePath);
+    const source = safeManifestPath(backupDir, relativePath);
+    if (expectedHash === null) {
+      continue;
+    }
+    if (
+      !fs.existsSync(source) ||
+      hash(fs.readFileSync(source)) !== expectedHash
+    ) {
+      throw new Error(`Backup checksum mismatch: ${source}`);
+    }
+  }
+
+  for (const [relativePath, expectedHash] of entries) {
+    const source = safeManifestPath(backupDir, relativePath);
+    const destination = safeManifestPath(gameDir, relativePath);
+    if (expectedHash === null) {
+      if (fs.existsSync(destination)) {
+        fs.unlinkSync(destination);
+      }
+      continue;
+    }
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    fs.copyFileSync(source, destination);
+  }
+
+  for (const [relativePath, expectedHash] of entries) {
+    const destination = safeManifestPath(gameDir, relativePath);
+    if (expectedHash === null) {
+      if (fs.existsSync(destination)) {
+        throw new Error(`Restore verification failed: ${destination}`);
+      }
+    } else if (hash(fs.readFileSync(destination)) !== expectedHash) {
+      throw new Error(`Restore verification failed: ${destination}`);
+    }
+  }
+}
+
 function restore(gameDir, requestedBackup) {
   const backupDir = requestedBackup
     ? path.resolve(requestedBackup)
@@ -1313,6 +1371,12 @@ function restore(gameDir, requestedBackup) {
     throw new Error(`Backup manifest not found: ${manifestPath}`);
   }
   const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+
+  if (manifest.patch === "Nyx Pixie Elementalist finalizer") {
+    restoreFinalizerBackup(gameDir, backupDir, manifest);
+    console.log(`Restored files from ${backupDir}`);
+    return;
+  }
 
   for (const relativePath of PATCHED_FILES) {
     if (!manifest.files[relativePath]) {

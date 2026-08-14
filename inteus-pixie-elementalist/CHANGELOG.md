@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.3.1 - 2026-08-14
+
+- Identify the standard scenario selector's dynamic `UN32.def` construction
+  at executable virtual address `0x0051DCCB`.
+- Redirect the sole `un32.def` string in each executable to the isolated
+  `ix32.def` name at file offset `0x2817DC`.
+- Add `IX32.def` to both sprite archives, `Data`, and both HD compatibility
+  packs, and register it in each `Files.ini`.
+- Back up and byte-verify every new resource path and decompress all 4,586
+  sprite-archive entries after patching.
+- Restore finalizer backups exactly from their checksummed manifests,
+  including removal of resources that did not exist before finalization.
+- Mark in-game confirmation of the standard scenario selector as pending.
+
+## 1.3.0 - 2026-08-14
+
+- Confirm the custom Nyx portrait in the random-map starting-hero selector.
+- Add a read-only runtime probe for the HotA portrait tables and document the
+  verified `setseed.dll` diagnostic loader path.
+- Confirm that hero 140 already resolves through `HPL004EL.PCX` and
+  `HPS004EL.PCX`; no runtime-table rewrite is needed.
+- Convert the verified LOD-PCX portrait assets to standard indexed BMP files,
+  install them in both HotA compatibility packs, and register
+  `HPL004EL.bmp` and `HPS004EL.bmp` in each `Files.ini`.
+- Continue removing unsafe loose `.pcx` portrait files. HD Mod maps registered
+  BMP replacements to HotA's corresponding PCX resource requests.
+
 ## 1.2.1 - 2026-08-14
 
 - Mark hero portraits and standard scenario specialty pictures as unresolved.

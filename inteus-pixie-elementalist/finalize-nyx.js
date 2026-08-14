@@ -9,8 +9,12 @@ const zlib = require("zlib");
 
 const gameDir = path.resolve(process.argv[2] || "..");
 const files = {
+  exe: "h3hota.exe",
+  hdExe: "h3hota HD.exe",
   dll: "HD_HOTA.dll",
   language: path.join("Data", "HotA_lng.lod"),
+  spritesBase: path.join("Data", "H3sprite.lod"),
+  spritesExpansion: path.join("Data", "H3ab_spr.lod"),
   bitmap: path.join("Data", "H3bitmap.lod"),
   bitmapExpansion: path.join("Data", "H3ab_bmp.lod"),
   hdFilesIni: path.join("_HD3_Data", "Compability", "#hota", "Files.ini"),
@@ -20,7 +24,15 @@ const portraitNames = ["HPL004EL.pcx", "HPS004EL.pcx"];
 const portraitAssets = portraitNames.map((name) =>
   fs.readFileSync(path.join(__dirname, "assets", name)),
 );
-const specialtyNames = ["UN32.def", "UN44.def", "IX44.def"];
+const portraitBmpNames = portraitNames.map((name) =>
+  name.replace(/\.pcx$/i, ".bmp"),
+);
+const scenarioName = "IX32.def";
+const scenarioLoosePath = path.join("Data", scenarioName);
+const specialtyNames = ["UN32.def", "UN44.def", scenarioName, "IX44.def"];
+const scenarioStringOffset = 0x2817dc;
+const originalScenarioName = Buffer.from("un32.def\0", "latin1");
+const patchedScenarioName = Buffer.from("ix32.def\0", "latin1");
 const positionOffset = 0x234d9a;
 const layoutOffset = 0x234dc3;
 const finalPosition = Buffer.from("6a126a4e", "hex");
@@ -36,6 +48,64 @@ const finalLayout = Buffer.from(
 function hash(buffer) {
   return crypto.createHash("sha256").update(buffer).digest("hex");
 }
+
+function lodPcxToBmp(pcx, expectedWidth, expectedHeight) {
+  if (pcx.length < 12 + 768) {
+    throw new Error("LOD-PCX asset is truncated.");
+  }
+  const pixelSize = pcx.readUInt32LE(0);
+  const width = pcx.readUInt32LE(4);
+  const height = pcx.readUInt32LE(8);
+  if (
+    width !== expectedWidth ||
+    height !== expectedHeight ||
+    pixelSize !== width * height ||
+    pcx.length !== 12 + pixelSize + 768
+  ) {
+    throw new Error(`Unexpected LOD-PCX layout: ${width}x${height}.`);
+  }
+
+  const pixelOffset = 14 + 40 + 256 * 4;
+  const rowStride = (width + 3) & ~3;
+  const imageSize = rowStride * height;
+  const bmp = Buffer.alloc(pixelOffset + imageSize);
+
+  bmp.write("BM", 0, "ascii");
+  bmp.writeUInt32LE(bmp.length, 2);
+  bmp.writeUInt32LE(pixelOffset, 10);
+  bmp.writeUInt32LE(40, 14);
+  bmp.writeInt32LE(width, 18);
+  bmp.writeInt32LE(height, 22);
+  bmp.writeUInt16LE(1, 26);
+  bmp.writeUInt16LE(8, 28);
+  bmp.writeUInt32LE(imageSize, 34);
+  bmp.writeUInt32LE(256, 46);
+  bmp.writeUInt32LE(256, 50);
+
+  const sourcePixels = pcx.subarray(12, 12 + pixelSize);
+  const sourcePalette = pcx.subarray(12 + pixelSize);
+  for (let index = 0; index < 256; index += 1) {
+    const source = index * 3;
+    const destination = 54 + index * 4;
+    bmp[destination] = sourcePalette[source + 2];
+    bmp[destination + 1] = sourcePalette[source + 1];
+    bmp[destination + 2] = sourcePalette[source];
+  }
+  for (let y = 0; y < height; y += 1) {
+    sourcePixels.copy(
+      bmp,
+      pixelOffset + (height - 1 - y) * rowStride,
+      y * width,
+      (y + 1) * width,
+    );
+  }
+  return bmp;
+}
+
+const portraitBmpAssets = [
+  lodPcxToBmp(portraitAssets[0], 58, 64),
+  lodPcxToBmp(portraitAssets[1], 48, 32),
+];
 
 function read(relativePath) {
   return fs.readFileSync(path.join(gameDir, relativePath));
@@ -82,6 +152,71 @@ function replaceLodEntry(archive, name, replacement) {
   updated.writeUInt32LE(replacement.length, entry.directoryOffset + 20);
   updated.writeUInt32LE(0, entry.directoryOffset + 28);
   return Buffer.concat([updated, replacement]);
+}
+
+function addOrReplaceLodEntry(archive, name, replacement, type = 0) {
+  try {
+    if (extractLodEntry(archive, name).equals(replacement)) {
+      return archive;
+    }
+    return replaceLodEntry(archive, name, replacement);
+  } catch (error) {
+    if (error.message !== `LOD entry not found: ${name}`) {
+      throw error;
+    }
+  }
+
+  if (Buffer.byteLength(name, "latin1") > 15) {
+    throw new Error(`LOD entry name is too long: ${name}`);
+  }
+  const entryCount = archive.readUInt32LE(8);
+  const directoryOffset = 92 + entryCount * 32;
+  let firstDataOffset = archive.length;
+  for (let index = 0; index < entryCount; index += 1) {
+    const dataOffset = archive.readUInt32LE(92 + index * 32 + 16);
+    if (dataOffset > 0 && dataOffset < firstDataOffset) {
+      firstDataOffset = dataOffset;
+    }
+  }
+  if (directoryOffset + 32 > firstDataOffset) {
+    throw new Error(`No free LOD directory slot for ${name}.`);
+  }
+
+  const updated = Buffer.from(archive);
+  updated.fill(0, directoryOffset, directoryOffset + 32);
+  updated.write(name, directoryOffset, "latin1");
+  updated.writeUInt32LE(archive.length, directoryOffset + 16);
+  updated.writeUInt32LE(replacement.length, directoryOffset + 20);
+  updated.writeUInt32LE(type, directoryOffset + 24);
+  updated.writeUInt32LE(0, directoryOffset + 28);
+  updated.writeUInt32LE(entryCount + 1, 8);
+  return Buffer.concat([updated, replacement]);
+}
+
+function patchScenarioLookup(executable) {
+  const current = executable.subarray(
+    scenarioStringOffset,
+    scenarioStringOffset + originalScenarioName.length,
+  );
+  if (
+    !current.equals(originalScenarioName) &&
+    !current.equals(patchedScenarioName)
+  ) {
+    throw new Error("Unexpected scenario specialty resource name.");
+  }
+  const updated = Buffer.from(executable);
+  patchedScenarioName.copy(updated, scenarioStringOffset);
+  return updated;
+}
+
+function patchScenarioArchive(archive) {
+  const source = findLodEntry(archive, "UN32.def");
+  return addOrReplaceLodEntry(
+    archive,
+    scenarioName,
+    extractLodEntry(archive, "UN32.def"),
+    archive.readUInt32LE(source.directoryOffset + 24),
+  );
 }
 
 function patchPortraits(archive) {
@@ -175,6 +310,10 @@ function patchFilesIni(buffer, namesToAdd, namesToRemove = []) {
 const originals = Object.fromEntries(
   Object.values(files).map((relativePath) => [relativePath, read(relativePath)]),
 );
+const scenarioDef = extractLodEntry(
+  originals[files.spritesExpansion],
+  "UN32.def",
+);
 const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..*$/, "").replace("T", "-");
 const backupDir = path.join(gameDir, "ConfluxElementalistPatch", "backups", stamp);
 fs.mkdirSync(path.join(backupDir, "Data"), { recursive: true });
@@ -185,8 +324,24 @@ for (const [relativePath, buffer] of Object.entries(originals)) {
   fs.writeFileSync(destination, buffer);
   manifest.files[relativePath] = hash(buffer);
 }
+for (const relativePath of [scenarioLoosePath]) {
+  const source = path.join(gameDir, relativePath);
+  if (!fs.existsSync(source)) {
+    manifest.files[relativePath] = null;
+    continue;
+  }
+  const destination = path.join(backupDir, relativePath);
+  fs.mkdirSync(path.dirname(destination), { recursive: true });
+  const buffer = fs.readFileSync(source);
+  fs.writeFileSync(destination, buffer);
+  manifest.files[relativePath] = hash(buffer);
+}
 for (const pack of ["#hota", "#hota15"]) {
-  for (const name of [...portraitNames, ...specialtyNames]) {
+  for (const name of [
+    ...portraitNames,
+    ...portraitBmpNames,
+    ...specialtyNames,
+  ]) {
     const relativePath = path.join(
       "_HD3_Data",
       "Compability",
@@ -207,8 +362,18 @@ for (const pack of ["#hota", "#hota15"]) {
 }
 fs.writeFileSync(path.join(backupDir, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 
+writeIfChanged(files.exe, patchScenarioLookup(originals[files.exe]));
+writeIfChanged(files.hdExe, patchScenarioLookup(originals[files.hdExe]));
 writeIfChanged(files.dll, patchDll(originals[files.dll]));
 writeIfChanged(files.language, patchLanguage(originals[files.language]));
+writeIfChanged(
+  files.spritesBase,
+  patchScenarioArchive(originals[files.spritesBase]),
+);
+writeIfChanged(
+  files.spritesExpansion,
+  patchScenarioArchive(originals[files.spritesExpansion]),
+);
 writeIfChanged(files.bitmap, patchPortraits(originals[files.bitmap]));
 writeIfChanged(
   files.bitmapExpansion,
@@ -218,7 +383,7 @@ writeIfChanged(
   files.hdFilesIni,
   patchFilesIni(
     originals[files.hdFilesIni],
-    specialtyNames,
+    [...specialtyNames, ...portraitBmpNames],
     portraitNames,
   ),
 );
@@ -226,9 +391,20 @@ writeIfChanged(
   files.hdFilesIni15,
   patchFilesIni(
     originals[files.hdFilesIni15],
-    specialtyNames,
+    [...specialtyNames, ...portraitBmpNames],
     portraitNames,
   ),
+);
+fs.writeFileSync(path.join(gameDir, scenarioLoosePath), scenarioDef);
+fs.writeFileSync(
+  path.join(
+    gameDir,
+    "_HD3_Data",
+    "Compability",
+    "#hota",
+    scenarioName,
+  ),
+  scenarioDef,
 );
 for (const pack of ["#hota", "#hota15"]) {
   for (const name of portraitNames) {
@@ -243,6 +419,18 @@ for (const pack of ["#hota", "#hota15"]) {
       fs.unlinkSync(portraitPath);
     }
   }
+  for (let index = 0; index < portraitBmpNames.length; index += 1) {
+    fs.writeFileSync(
+      path.join(
+        gameDir,
+        "_HD3_Data",
+        "Compability",
+        pack,
+        portraitBmpNames[index],
+      ),
+      portraitBmpAssets[index],
+    );
+  }
   for (const name of specialtyNames) {
     fs.writeFileSync(
       path.join(gameDir, "_HD3_Data", "Compability", pack, name),
@@ -251,6 +439,28 @@ for (const pack of ["#hota", "#hota15"]) {
   }
 }
 
+for (const relativePath of [files.exe, files.hdExe]) {
+  const installed = read(relativePath).subarray(
+    scenarioStringOffset,
+    scenarioStringOffset + patchedScenarioName.length,
+  );
+  if (!installed.equals(patchedScenarioName)) {
+    throw new Error(`Scenario resource redirection failed: ${relativePath}`);
+  }
+}
+for (const relativePath of [files.spritesBase, files.spritesExpansion]) {
+  const archive = read(relativePath);
+  if (
+    !extractLodEntry(archive, scenarioName).equals(
+      extractLodEntry(archive, "UN32.def"),
+    )
+  ) {
+    throw new Error(`Scenario DEF verification failed: ${relativePath}`);
+  }
+}
+if (!read(scenarioLoosePath).equals(scenarioDef)) {
+  throw new Error(`Scenario DEF verification failed: ${scenarioLoosePath}`);
+}
 for (const relativePath of [files.bitmap, files.bitmapExpansion]) {
   const archive = read(relativePath);
   for (let index = 0; index < portraitNames.length; index += 1) {
@@ -265,7 +475,11 @@ for (const pack of ["#hota", "#hota15"]) {
   );
   if (
     !filesIni.equals(
-      patchFilesIni(filesIni, specialtyNames, portraitNames),
+      patchFilesIni(
+        filesIni,
+        [...specialtyNames, ...portraitBmpNames],
+        portraitNames,
+      ),
     )
   ) {
     throw new Error(`HD resource registration verification failed: ${pack}`);
@@ -283,6 +497,21 @@ for (const pack of ["#hota", "#hota15"]) {
       )
     ) {
       throw new Error(`Unsafe loose portrait still exists: ${pack}/${name}`);
+    }
+  }
+  for (let index = 0; index < portraitBmpNames.length; index += 1) {
+    const installed = read(
+      path.join(
+        "_HD3_Data",
+        "Compability",
+        pack,
+        portraitBmpNames[index],
+      ),
+    );
+    if (!installed.equals(portraitBmpAssets[index])) {
+      throw new Error(
+        `HD portrait BMP verification failed: ${pack}/${portraitBmpNames[index]}`,
+      );
     }
   }
   for (const name of specialtyNames) {

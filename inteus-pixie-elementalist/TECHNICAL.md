@@ -150,20 +150,41 @@ string.
 Heroes III indexed-PCX format and replaces hero 140's unique resources
 `HPL004EL.pcx` (58x64) and `HPS004EL.pcx` (48x32) in both bitmap archives.
 
-The name change works. The portrait change does not currently appear in the
-random-map selector. HD Mod 5.6 R16 reads this view through the runtime
-`HotA.HPL_tbl`/`HotA.HPS_tbl` tables rather than the patched bitmap LOD entries.
+HD Mod 5.6 R16 exposes the portrait runtime state through `HdCommon_Get`. A
+read-only 32-bit diagnostic DLL queried:
 
-Loose same-name portrait overrides are unsafe. Registering the raw LOD-PCX
-payloads in `#hota15` crashes at `HD_TC2.dll+0x6710`. Converting them to valid
-three-plane ZSoft PCX files reaches the same null dereference. The finalizer
-therefore removes both portrait names and loose files from `#hota` and
-`#hota15`.
+- `HotA.HPL_tbl`
+- `HotA.HPS_tbl`
+- `HotA.PortraitsCount`
+- `HotA.HeroesDefaultPortraits`
 
-## Unresolved Standard Dialogs
+HotA disables HD Mod's general plugin-directory scans with executable flag
+`0x8`. The probe therefore used HD Mod's optional
+`_HD3_Data/Common/setseed.dll` loader slot and was removed after one run.
+Entry 140 contained direct pointers to the static names `HPL004el.PCX` and
+`HPS004el.PCX`; the default portrait index was 140. No table rewrite was
+needed.
 
-The standard scenario selector still displays Bloodlust, even though frame
-140 differs from the original in all of these locations:
+HD Mod's registered loose-resource convention maps a standard bitmap such as
+`HStInf.bmp` to HotA's `HStInf.pcx` request. The working portrait override
+uses the same path:
+
+1. Validate the 12-byte LOD-PCX header, dimensions, pixel count, and
+   768-byte palette.
+2. Convert the top-down indexed pixels and RGB palette to a standard
+   bottom-up 8-bit Windows BMP with four-byte row alignment.
+3. Install `HPL004EL.bmp` and `HPS004EL.bmp` in both `#hota` and `#hota15`.
+4. Register the BMP names in both `Files.ini` files.
+5. Remove loose `HPL004EL.pcx` and `HPS004EL.pcx` files and registrations.
+
+The custom Nyx portrait is confirmed in the random-map starting-hero
+selector. Raw LOD-PCX files and standard three-plane ZSoft PCX files remain
+unsafe as loose HD resources; both crash at `HD_TC2.dll+0x6710`.
+
+## Standard Scenario Selector
+
+The standard scenario selector continued to display Bloodlust even though
+frame 140 differed from the original in all of these locations:
 
 - `Data/H3sprite.lod`
 - `Data/H3ab_spr.lod`
@@ -172,12 +193,37 @@ The standard scenario selector still displays Bloodlust, even though frame
 
 Adding matching `UN32.def`, `UN44.def`, and `IX44.def` entries to
 `Data/HotA_ext.lod` also had no visible effect and was reverted. These results
-show that the dialog uses a HotA runtime resource path rather than normal LOD
-precedence. A runtime hook is required.
+showed that replacing the shared `UN32.def` name did not reach the dialog.
 
-An experimental rewrite of the HD portrait loader was also reverted. It
-crashed at `HD_HOTA.dll+0x23516A` while reading `0x9090911C`, indicating that
-the replacement overwrote live code or corrupted its object layout.
+Disassembly identified the dynamic scenario-selector image construction in
+both executables at virtual address `0x0051DCCB`. It passes:
+
+```text
+resource = un32.def
+frame = DWORD [hero data + 0x1A]
+constructor = 0x004EA800
+```
+
+The resource string is the only `un32.def` occurrence in each executable. It
+is at virtual address `0x006817DC`, file offset `0x2817DC`.
+
+Version 1.3.1 changes the same-length string to `ix32.def` in `h3hota.exe` and
+`h3hota HD.exe`. To cover each resource-resolution path, the finalizer:
+
+1. Adds `IX32.def` to both sprite LOD directories as a byte-identical copy of
+   that archive's patched `UN32.def`.
+2. Installs the expansion archive's patched copy as `Data/IX32.def`.
+3. Installs and registers the same copy in both `#hota` and `#hota15`.
+4. Guards both the original and already-patched executable states.
+5. Backs up all affected files before writing.
+
+This avoids the original resource name and any cached same-name atlas. The
+installation and byte-level validation succeeded; in-game confirmation in
+the standard scenario selector is pending.
+
+An earlier experimental rewrite of the HD portrait loader was reverted. It
+crashed at `HD_HOTA.dll+0x23516A` while reading `0x9090911C`. The runtime
+probe later showed that loader rewriting was unnecessary.
 
 ## Validation Performed
 
@@ -198,5 +244,14 @@ the replacement overwrote live code or corrupted its object layout.
 - Disassembly verification of the direct `xPos`/`yPos` adjustments
 - In-game verification of the Pixie specialty and position in the random-map
   Advanced Options popup
-- In-game confirmation that portrait and standard scenario resource overrides
-  remain unresolved
+- Runtime verification of portrait-table entry 140 and neighboring entries
+- Header, dimension, palette, pixel, padding, and byte verification of both
+  generated BMP portrait overrides
+- In-game verification of the custom Nyx random-map portrait
+- All 4,015 base and 571 expansion sprite-LOD entries decompressed and
+  size-checked after adding `IX32.def`
+- Byte verification that each LOD's `IX32.def` equals its own patched
+  `UN32.def`
+- Verification that both executable lookups and all loose/HD resource paths
+  use the isolated scenario resource
+- In-game verification of the standard scenario selector remains pending

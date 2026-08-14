@@ -1,6 +1,6 @@
 # Nyx Pixie Elementalist
 
-Version 1.2.1
+Version 1.3.1
 
 This patch replaces Inteus, hero ID 140, with Nyx in Horn of the Abyss 1.8.0.
 It uses Inteus's existing Elementalist slot, so he remains available in the
@@ -14,23 +14,24 @@ Conflux starting-hero selector for random maps.
 - Starting skills: Basic Fire Magic and Basic Tactics
 - Starting spell: Fire Wall
 - Random-map Advanced Options specialty picture: Pixie
+- Random-map starting-hero portrait: custom Nyx portrait
 - Hero name: Nyx
 - Starting army and class: unchanged
 
 ## Known Limitations
 
-The following are not solved in HotA 1.8.0 with HD Mod 5.6 R16:
+The following still requires in-game verification in HotA 1.8.0 with
+HD Mod 5.6 R16:
 
-- The random-map starting-hero selector still shows Inteus's original portrait.
-- The standard scenario hero selector still shows the Bloodlust specialty
-  picture.
+- The standard scenario hero selector now uses an isolated `IX32.def`
+  resource, but this final redirection has not yet been confirmed in-game.
 - Standard in-game specialty views may report that the redirected picture is
   missing.
 
-The patched portrait and specialty frames are present and byte-verified in the
-legacy LOD archives, but these HotA/HD dialogs bypass those resource paths.
-They require runtime-table or dialog hooks. See
-[TECHNICAL.md](TECHNICAL.md) for tested failures and crash signatures.
+The earlier same-name `UN32.def` overrides were ignored by the standard
+scenario dialog. Version 1.3.1 redirects that dialog's executable lookup to a
+new resource name to avoid the original atlas's cached path. See
+[TECHNICAL.md](TECHNICAL.md) for the exact call site and validation.
 
 ## Requirements
 
@@ -89,20 +90,30 @@ The patch modifies:
 - `Data/H3ab_spr.lod`
 - `Data/H3bitmap.lod`
 - `Data/H3ab_bmp.lod`
+- `Data/IX32.def`
 - `Data/IX44.def`
 - `_HD3_Data/Compability/#hota/Files.ini`
 - `_HD3_Data/Compability/#hota/UN32.def`
 - `_HD3_Data/Compability/#hota/UN44.def`
+- `_HD3_Data/Compability/#hota/IX32.def`
 - `_HD3_Data/Compability/#hota/IX44.def`
+- `_HD3_Data/Compability/#hota/HPL004EL.bmp`
+- `_HD3_Data/Compability/#hota/HPS004EL.bmp`
 - `_HD3_Data/Compability/#hota15/Files.ini`
 - `_HD3_Data/Compability/#hota15/UN32.def`
 - `_HD3_Data/Compability/#hota15/UN44.def`
+- `_HD3_Data/Compability/#hota15/IX32.def`
 - `_HD3_Data/Compability/#hota15/IX44.def`
+- `_HD3_Data/Compability/#hota15/HPL004EL.bmp`
+- `_HD3_Data/Compability/#hota15/HPS004EL.bmp`
 
 No game files are distributed by this repository. The patcher derives the
 Pixie specialty pictures from the user's installed game resources.
 
 The random-map Advanced Options popup is a separate `HD_HOTA.dll`
 implementation. Its specialty control is patched directly to use built-in
-`CPRSMALL.def` frame 120 and is positioned correctly. The standard scenario
-and hero dialogs do not honor the tested DEF overrides and remain unresolved.
+`CPRSMALL.def` frame 120 and is positioned correctly. HD Mod serves the custom
+hero portrait from registered BMP replacements for HotA's HPL/HPS PCX
+requests. The standard scenario selector now requests an isolated `IX32.def`
+copy of the patched atlas; in-game confirmation of that final change is
+pending.
