@@ -12,21 +12,32 @@ const HERO_NAME = "Inteus";
 const SPECIALTY_OFFSET = 0x279a00;
 const HERO_DATA_OFFSET = 0x27d020;
 const PIXIE_PORTRAIT_FRAME = 120;
-const SPECIALTY_ICON_SIZE = 44;
+const SPECIALTY_ICON_RESOURCES = [
+  {
+    name: "UN32.def",
+    expectedFrameName: "un32lust.pcx",
+    size: 32,
+  },
+  {
+    name: "UN44.def",
+    expectedFrameName: "un44lust.pcx",
+    size: 44,
+  },
+];
 
 const FILES = {
   setup: "HotA_Setup.ini",
   exe: "h3hota.exe",
   hdExe: "h3hota HD.exe",
   language: path.join("Data", "HotA_lng.lod"),
-  sprites: path.join("Data", "H3sprite.lod"),
+  sprites: path.join("Data", "H3ab_spr.lod"),
 };
 
 const ORIGINAL_HASHES = {
   [FILES.exe]: "b5f2f793af0986050fb41df7209c25d861ae0f837af52bb3bd6864ba4de84f41",
   [FILES.hdExe]: "5aaab925f06cccf23bb09814767590a95b84a557eb33d244800520be4f1f18de",
   [FILES.language]: "f4ba08f4adfcfb3dcffdc8fa2063307ff2a6caa48212b11073ef43dc73d3047e",
-  [FILES.sprites]: "57caf2c50573f33a0d91e4222e51d3a73c136d44decf59dde21cacad88fe5d66",
+  [FILES.sprites]: "e0d5003742c8602827ef409966784483dece6eedde76aa2cfeee26cb12d25d67",
 };
 
 const PATCHED_FILES = [
@@ -285,7 +296,7 @@ function paletteColor(definition, paletteIndex) {
   ];
 }
 
-function pixieSpecialtyPixels(creaturePortraits, specialtyIcons) {
+function pixieSpecialtyPixels(creaturePortraits, specialtyIcons, iconSize) {
   const source = decodeDefFrame(creaturePortraits, PIXIE_PORTRAIT_FRAME);
   if (source.width !== 58 || source.height !== 64) {
     throw new Error("Unexpected Pixie portrait dimensions.");
@@ -300,21 +311,21 @@ function pixieSpecialtyPixels(creaturePortraits, specialtyIcons) {
   const targetPalette = Array.from({ length: 256 }, (_, index) =>
     paletteColor(specialtyIcons, index),
   );
-  const pixels = Buffer.alloc(SPECIALTY_ICON_SIZE * SPECIALTY_ICON_SIZE);
+  const pixels = Buffer.alloc(iconSize * iconSize);
 
-  for (let y = 0; y < SPECIALTY_ICON_SIZE; y += 1) {
+  for (let y = 0; y < iconSize; y += 1) {
     const sourceY =
       cropTop +
-      ((y + 0.5) * cropSize) / SPECIALTY_ICON_SIZE -
+      ((y + 0.5) * cropSize) / iconSize -
       0.5;
     const y0 = Math.max(cropTop, Math.floor(sourceY));
     const y1 = Math.min(cropTop + cropSize - 1, y0 + 1);
     const yWeight = sourceY - Math.floor(sourceY);
 
-    for (let x = 0; x < SPECIALTY_ICON_SIZE; x += 1) {
+    for (let x = 0; x < iconSize; x += 1) {
       const sourceX =
         cropLeft +
-        ((x + 0.5) * cropSize) / SPECIALTY_ICON_SIZE -
+        ((x + 0.5) * cropSize) / iconSize -
         0.5;
       const x0 = Math.max(cropLeft, Math.floor(sourceX));
       const x1 = Math.min(cropLeft + cropSize - 1, x0 + 1);
@@ -348,31 +359,37 @@ function pixieSpecialtyPixels(creaturePortraits, specialtyIcons) {
           bestIndex = index;
         }
       }
-      pixels[y * SPECIALTY_ICON_SIZE + x] = bestIndex;
+      pixels[y * iconSize + x] = bestIndex;
     }
   }
 
   return pixels;
 }
 
-function patchedSpecialtyIcons(originalIcons, creaturePortraits) {
+function patchedSpecialtyIcons(originalIcons, creaturePortraits, resource) {
   const icon = findDefFrame(originalIcons, HERO_ID);
   if (
-    icon.name.toLowerCase() !== "un44lust.pcx" ||
-    originalIcons.readUInt32LE(4) !== SPECIALTY_ICON_SIZE ||
-    originalIcons.readUInt32LE(8) !== SPECIALTY_ICON_SIZE
+    icon.name.toLowerCase() !== resource.expectedFrameName ||
+    originalIcons.readUInt32LE(4) !== resource.size ||
+    originalIcons.readUInt32LE(8) !== resource.size
   ) {
-    throw new Error("Unexpected Inteus specialty icon in UN44.def.");
+    throw new Error(
+      `Unexpected Inteus specialty icon in ${resource.name}.`,
+    );
   }
 
-  const pixels = pixieSpecialtyPixels(creaturePortraits, originalIcons);
+  const pixels = pixieSpecialtyPixels(
+    creaturePortraits,
+    originalIcons,
+    resource.size,
+  );
   const frame = Buffer.alloc(32 + pixels.length);
   frame.writeUInt32LE(pixels.length, 0);
   frame.writeUInt32LE(0, 4);
-  frame.writeUInt32LE(SPECIALTY_ICON_SIZE, 8);
-  frame.writeUInt32LE(SPECIALTY_ICON_SIZE, 12);
-  frame.writeUInt32LE(SPECIALTY_ICON_SIZE, 16);
-  frame.writeUInt32LE(SPECIALTY_ICON_SIZE, 20);
+  frame.writeUInt32LE(resource.size, 8);
+  frame.writeUInt32LE(resource.size, 12);
+  frame.writeUInt32LE(resource.size, 16);
+  frame.writeUInt32LE(resource.size, 20);
   pixels.copy(frame, 32);
 
   const updated = Buffer.from(originalIcons);
@@ -381,13 +398,21 @@ function patchedSpecialtyIcons(originalIcons, creaturePortraits) {
 }
 
 function patchedSpriteArchive(originalArchive) {
-  const specialtyIcons = extractLodEntry(originalArchive, "UN44.def");
   const creaturePortraits = extractLodEntry(originalArchive, "TwCrPort.def");
-  return replaceLodEntry(
-    originalArchive,
-    "UN44.def",
-    patchedSpecialtyIcons(specialtyIcons, creaturePortraits),
-  );
+  let archive = originalArchive;
+  for (const resource of SPECIALTY_ICON_RESOURCES) {
+    const specialtyIcons = extractLodEntry(originalArchive, resource.name);
+    archive = replaceLodEntry(
+      archive,
+      resource.name,
+      patchedSpecialtyIcons(
+        specialtyIcons,
+        creaturePortraits,
+        resource,
+      ),
+    );
+  }
+  return archive;
 }
 
 function spriteState(archive) {
@@ -395,17 +420,24 @@ function spriteState(archive) {
     return "original";
   }
   try {
-    const specialtyIcons = extractLodEntry(archive, "UN44.def");
     const creaturePortraits = extractLodEntry(archive, "TwCrPort.def");
-    const expected = pixieSpecialtyPixels(creaturePortraits, specialtyIcons);
-    const actual = decodeDefFrame(specialtyIcons, HERO_ID);
-    if (
-      actual.width === SPECIALTY_ICON_SIZE &&
-      actual.height === SPECIALTY_ICON_SIZE &&
-      actual.pixels.equals(expected)
-    ) {
-      return "patched";
+    for (const resource of SPECIALTY_ICON_RESOURCES) {
+      const specialtyIcons = extractLodEntry(archive, resource.name);
+      const expected = pixieSpecialtyPixels(
+        creaturePortraits,
+        specialtyIcons,
+        resource.size,
+      );
+      const actual = decodeDefFrame(specialtyIcons, HERO_ID);
+      if (
+        actual.width !== resource.size ||
+        actual.height !== resource.size ||
+        !actual.pixels.equals(expected)
+      ) {
+        return "unknown";
+      }
     }
+    return "patched";
   } catch {
     return "unknown";
   }

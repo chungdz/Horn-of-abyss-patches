@@ -1,5 +1,7 @@
 # Inteus Pixie Elementalist
 
+Version 1.0.1
+
 This patch reworks Inteus, hero ID 140, in Horn of the Abyss 1.8.0.
 It uses Inteus's existing Elementalist slot, so he remains available in the
 Conflux starting-hero selector for random maps.
@@ -55,7 +57,8 @@ node patch.js restore --game-dir "C:\Games\HoMM 3 Complete" --backup "C:\Games\H
 ```
 
 Start a new random map after applying the patch and select Inteus from the
-Conflux starting heroes.
+Conflux starting heroes. Fully exit the game before applying or restoring;
+reopening only the random-map dialog does not reload the sprite archive.
 
 ## Scope
 
@@ -64,7 +67,8 @@ The patch modifies:
 - `h3hota.exe`
 - `h3hota HD.exe`
 - `Data/HotA_lng.lod`
-- `Data/H3sprite.lod`
+- `Data/H3ab_spr.lod`
 
 No game files are distributed by this repository. The patcher derives the
-Pixie specialty picture from the user's installed game resources.
+Pixie specialty pictures from the user's installed game resources.
+`Data/H3sprite.lod` is not modified.
