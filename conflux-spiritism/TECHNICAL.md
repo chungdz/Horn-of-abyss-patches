@@ -4,10 +4,12 @@
 
 - Game: Horn of the Abyss 1.8.0
 - HD Mod: 5.6 R16
-- Prerequisite: Nyx Spiritism 0.1.5
+- Patch version: 0.2.0
+- Prerequisite: Nyx Spiritism 0.1.5 or Conflux Spiritism 0.1.0
 - Conflux hero IDs: `128` through `143`
 - Internal secondary skill: Necromancy, ID `12`
 - Raised creature: Pixie, creature ID `118`
+- Spiritism base rates: 10%/20%/30%
 
 ## Executable Records
 
@@ -57,15 +59,45 @@ The generated Conflux-wide hashes are:
 
 ## Runtime
 
-`ConfluxSpiritismRuntime.dll` is derived from the accepted Nyx Spiritism
-runtime 8. The hook addresses, direct relative-chaining backend, scoped text
-and resource aliases, post-battle message handling, and safety checks are
-unchanged.
+`ConfluxSpiritismRuntime.dll` retains the accepted Nyx Spiritism runtime
+behavior and adds a Conflux-only power hook.
+
+| Address | Function | Change |
+| --- | --- | --- |
+| `0x004E3ED0` | `H3Hero::GetNecromancyCreatureId` | Return Pixie `118` for a Conflux Spiritism hero |
+| `0x004E3F40` | `H3Hero::GetNecromancyPower` | Add 5% per Spiritism level after HotA's native calculation |
+| `0x004E1A70` | Standard hero dialog | Scope the Spiritism text and resource aliases |
+| `0x004DA990` | Hero level-up processing | Scope the Spiritism text and resource aliases |
+
+HotA changes the original Necromancy base table at `0x0063E9BC`,
+`0x0063E9C0`, and `0x0063E9C4` from the SoD values to 5%, 10%, and 15%.
+The new hook deliberately does not rewrite that global table because doing so
+would also change ordinary Necromancy.
+
+Instead, it calls the complete live HotA power function and applies:
+
+```text
+Spiritism power = HotA Necromancy power + 0.05 * skill level
+```
+
+The added values are therefore 5%, 10%, and 15%, producing final base rates
+of 10%, 20%, and 30%. HotA's artifact, Necromancy Amplifier, specialty, town,
+and other modifiers remain in the chained result. When the caller requests
+the native cap, the wrapper caps the final value at 100%.
+
+The power function normally retains its six-byte
+`55 8B EC 83 EC 08` prologue after HotA changes the rate table. The runtime
+copies those instructions into an executable trampoline and replaces them
+with a five-byte jump plus one NOP. If another supported component has already
+placed a relative jump there, the runtime chains that live target instead.
+All code patches are validated before writing and rolled back together on
+failure.
 
 The gameplay and UI eligibility check accepts hero IDs `128–143` and requires
 the hero's internal Necromancy level to be nonzero. This affects:
 
 - Raised-creature selection
+- Conflux-only 10%/20%/30% power calculation
 - Standard hero dialogs
 - Hero level-up dialogs
 - HD pregame hero panels
@@ -85,12 +117,13 @@ _HD3_Data/Common/ConfluxSpiritism.log
 Its success log begins with:
 
 ```text
-Conflux Spiritism runtime 1
-heroes=128-143 creature=118 underlying-skill=12
+Conflux Spiritism runtime 2
+heroes=128-143 creature=118 rates=10/20/30 underlying-skill=12
 ```
 
-and must report all four hook categories installed, the direct-relative
-backend, both specialty frames patched, and the final success line.
+and must report all five hook categories installed, including
+`necromancy rate hook=installed`, the direct-relative backend, both specialty
+frames patched, and the final success line.
 
 ## Shared Resources
 
@@ -123,7 +156,7 @@ The deterministic Zig 0.15.2 x86 Windows build imports only `KERNEL32.dll`.
 
 ```text
 assets/ConfluxSpiritismRuntime.dll
-SHA-256 eabfbe0bf6e98612895359e2d96746fc9405ddd32c43aad901e07753ab0670d0
+SHA-256 c5ce44bddf87e5e2a581c3574adf3f4a67a44ab9f35c3f1594227bae58f254d5
 ```
 
 Two consecutive default builds reproduce this checksum byte for byte.
@@ -138,9 +171,42 @@ Nyx Spiritism 0.1.5 installation:
 - `restore` reproduced the original Nyx-only executable and runtime hashes.
 - Restore removed the Conflux runtime log when it did not exist before apply.
 
-The live installation was subsequently tested in game. Its runtime log
-reported all four hook categories installed through the direct-relative
-backend, and the Conflux-wide Spiritism behavior was confirmed working.
+Version 0.1.0 was subsequently tested in game. Its runtime log reported all
+four original hook categories installed through the direct-relative backend,
+and the Conflux-wide Spiritism behavior was confirmed working.
+
+The 0.2.0 installer was also exercised against an isolated copy of the live
+0.1.0 installation:
+
+- `status` identified the reviewed 0.1.0 runtime as an upgrade source.
+- `apply` retained both executable hashes and installed the 0.2.0 runtime.
+- `restore` reproduced the 0.1.0 runtime and prior log hashes exactly.
+
+The live 0.2.0 installation then reported all five hook categories installed,
+using the validated entry trampoline for `GetNecromancyPower`. The Basic
+description displayed 10%, and defeating 28 Sprites at 3 health each raised
+2 Pixies:
+
+```text
+floor(28 * 3 * 0.10 / 3) = 2
+```
+
+The same battle would raise only 1 Pixie at HotA's native 5% Basic rate.
+
+The manual-combat routine at `0x00476F67` also confirms that each defeated
+creature's health contribution is capped at the raised creature's health
+before multiplication by the rate. Its single-stack calculation is:
+
+```text
+floor(casualties * min(defeated HP, raised HP) * power / raised HP)
+```
+
+The live Expert test defeated 56 Hobgoblins at 5 health each and raised
+16 Pixies at 3 health:
+
+```text
+floor(56 * min(5, 3) * 0.30 / 3) = 16
+```
 
 ## Files Changed By Apply
 

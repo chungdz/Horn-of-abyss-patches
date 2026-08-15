@@ -1,16 +1,51 @@
 # Conflux Spiritism
 
-Version 0.1.0
+Version 0.2.0
 
 This HotA 1.8.0 upgrade gives every Conflux hero Spiritism in the first
 secondary-skill slot. It builds on the tested
 [Nyx Spiritism](../nyx-spiritism/README.md) 0.1.5 patch and reuses its custom
 icons and loose resources.
 
-Spiritism remains Necromancy internally. Conflux heroes raise Pixies while
-using HotA's native Necromancy percentages, Amplifiers, artifacts, AI
-handling, rounding, save format, and post-battle army logic. Heroes outside
-the Conflux retain normal Necromancy and Skeleton raising.
+Spiritism remains Necromancy internally. Conflux heroes raise Pixies at
+10%/20%/30% base rates while retaining HotA's native Amplifiers, artifacts,
+AI handling, rounding, save format, and post-battle army logic. Heroes
+outside the Conflux retain normal 5%/10%/15% Necromancy and Skeleton raising.
+
+## Spiritism Rates
+
+| Level | Base rate |
+| --- | --- |
+| Basic | 10% |
+| Advanced | 20% |
+| Expert | 30% |
+
+The runtime first asks HotA for its complete Necromancy percentage, including
+the normal skill rate, artifacts, Amplifiers, specialties, and other native
+modifiers. It then adds another `5%` per Spiritism level for Conflux heroes.
+When HotA requests a capped result, the final percentage remains capped at
+100%.
+
+This means artifact and building bonuses remain additive. For example, Basic
+Spiritism plus Vampire's Cowl uses 20%: the 10% Spiritism base plus the Cowl's
+normal 10% bonus.
+
+For each defeated stack, the native army calculation caps a creature's
+contributing health at the raised creature's health, then rounds down:
+
+```text
+raised Pixies from one stack =
+floor(casualties * min(defeated creature health, Pixie health)
+      * final rate / Pixie health)
+```
+
+For example, 28 Sprites at 3 health each produce 2 Pixies with Basic
+Spiritism: `floor(28 * 3 * 0.10 / 3) = floor(2.8) = 2`. The same battle would
+produce only 1 Pixie at the former 5% rate.
+
+At Expert Spiritism, 56 Hobgoblins at 5 health each produce 16 Pixies:
+`floor(56 * min(5, 3) * 0.30 / 3) = floor(16.8) = 16`. Their health is capped
+at the Pixie's 3 health for this calculation.
 
 ## Hero Changes
 
@@ -38,7 +73,9 @@ Advanced Spiritism; all other Conflux heroes receive Basic Spiritism.
 
 ## Prerequisite
 
-Apply and test Nyx Spiritism 0.1.5 first. This installer requires its exact:
+For a fresh installation, apply and test Nyx Spiritism 0.1.5 first. The
+installer also supports an in-place upgrade from reviewed Conflux Spiritism
+0.1.0. It requires the exact:
 
 - Executable checksums
 - Runtime DLL checksum
@@ -80,7 +117,8 @@ python3 patch.py restore --game-dir "../.." \
 ## Test Checklist
 
 1. Start `h3hota HD.exe` and confirm
-   `_HD3_Data/Common/ConfluxSpiritism.log` reports all hooks installed.
+   `_HD3_Data/Common/ConfluxSpiritism.log` reports the creature and rate hooks
+   installed.
 2. In the random-map hero selector, inspect several Conflux heroes and confirm
    their first skill is Spiritism with the custom icon.
 3. Confirm Lacus and Fiur show Advanced Spiritism.
@@ -91,6 +129,18 @@ python3 patch.py restore --game-dir "../.." \
    Spiritism result message.
 7. Open a non-Conflux Necromancy hero and confirm normal Necromancy text,
    icons, and Skeleton raising remain unchanged.
+
+For a deterministic rate test, create a battle against exactly 120 Peasants
+with no artifacts or Amplifiers. Because each Peasant has 1 health and each
+Pixie has 3 health, the expected results are:
+
+| Spiritism level | Raised Pixies |
+| --- | --- |
+| Basic | 4 |
+| Advanced | 8 |
+| Expert | 12 |
+
+Adding Vampire's Cowl raises the Basic result to 8 Pixies.
 
 Use a new map or newly recruited heroes when checking starting skills.
 Existing heroes in saved games retain the skills serialized in those saves.

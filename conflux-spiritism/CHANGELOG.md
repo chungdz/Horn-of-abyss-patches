@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.2.0 - 2026-08-15
+
+- Increased the Conflux-only Spiritism base rates from 5%/10%/15% to
+  10%/20%/30%.
+- Added a direct `H3Hero::GetNecromancyPower` hook that chains HotA's complete
+  calculation, then adds 5% per Spiritism level.
+- Preserved HotA's artifact, Necromancy Amplifier, specialty, rounding, AI,
+  and optional 100% cap behavior.
+- Kept ordinary Necromancy at HotA's native 5%/10%/15% rates.
+- Updated the Basic, Advanced, and Expert Spiritism descriptions to display
+  10%, 20%, and 30%.
+- Added in-place installer support for the reviewed 0.1.0 runtime.
+- Added deterministic rate-test instructions using 120 Peasants.
+- Verified the live Basic rate: 28 Sprites at 3 health each raised 2 Pixies,
+  matching `floor(28 * 3 * 0.10 / 3)`.
+- Documented the native per-creature health cap after an Expert test raised
+  16 Pixies from 56 Hobgoblins:
+  `floor(56 * min(5, 3) * 0.30 / 3)`.
+
 ## 0.1.0 - 2026-08-15
 
 - Added a separate Conflux-wide upgrade over Nyx Spiritism 0.1.5.

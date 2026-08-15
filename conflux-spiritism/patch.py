@@ -15,7 +15,7 @@ HERO_RECORD_STRIDE = 0x5C
 FIRST_SKILL_TYPE_OFFSET = 0x27CBDC
 NECROMANCY = 12
 EMPTY_SKILL = 0xFFFFFFFF
-RUNTIME_LOG_MARKER = "Conflux Spiritism runtime 1"
+RUNTIME_LOG_MARKER = "Conflux Spiritism runtime 2"
 
 HEROES = (
     (128, "Pasis", 22, 1, 20, 1),
@@ -70,6 +70,9 @@ CONFLUX_EXECUTABLE_HASHES = {
 }
 NYX_RUNTIME_HASH = (
     "54c997f1aebc081f2b944cbb9cecb366121c91ab83e3963056ac3641b4656a9f"
+)
+CONFLUX_010_RUNTIME_HASH = (
+    "eabfbe0bf6e98612895359e2d96746fc9405ddd32c43aad901e07753ab0670d0"
 )
 SMALL_RESOURCE_HASH = (
     "ba4ba357d2859b8e5dc8077bce00b1effc0a40b42fb25fa9f53ed76dd0d85eb3"
@@ -244,6 +247,7 @@ def last_launch_state(game_dir):
     if (
         RUNTIME_LOG_MARKER in log
         and "necromancy hook=installed" in log
+        and "necromancy rate hook=installed" in log
         and "hero dialog hook=installed" in log
         and "level-up hook=installed" in log
         and "HD hero selection hook=installed" in log
@@ -287,6 +291,8 @@ def collect_status(game_dir):
     result["runtime"] = (
         "conflux-spiritism"
         if runtime_hash == expected_runtime_hash
+        else "conflux-spiritism-0.1.0"
+        if runtime_hash == CONFLUX_010_RUNTIME_HASH
         else "nyx-spiritism"
         if runtime_hash == NYX_RUNTIME_HASH
         else "missing"
@@ -325,6 +331,7 @@ def skill_name(skill_id):
 
 def print_status(status):
     print("Conflux Spiritism status")
+    print("  Conflux base rates: 10% / 20% / 30%")
     for executable, state in status["executables"].items():
         heroes = status["heroes"].get(executable, {})
         spiritists = sum(
@@ -360,29 +367,46 @@ def print_status(status):
 
 
 def validate_prerequisite(game_dir, status):
-    if not all(
+    nyx_executables = all(
         state == "nyx-spiritism"
         for state in status["executables"].values()
-    ):
-        raise RuntimeError(
-            "Apply the tested Nyx Spiritism 0.1.5 patch before this upgrade."
-        )
-    if status["runtime"] != "nyx-spiritism":
-        raise RuntimeError(
-            "The installed runtime is not the reviewed Nyx Spiritism DLL."
-        )
+    )
+    conflux_executables = all(
+        state == "conflux-spiritism"
+        for state in status["executables"].values()
+    )
     if not status["resources"] or not status["registrations"]:
         raise RuntimeError(
             "The reviewed Nyx Spiritism resources are not fully installed."
         )
-    for heroes in status["heroes"].values():
-        for _, name, original_first, *_ in HEROES:
-            expected = NECROMANCY if name == "Nyx" else original_first
-            state = heroes[name]
-            if state[1] != expected or state[0] == "unexpected":
+    if nyx_executables:
+        if status["runtime"] != "nyx-spiritism":
+            raise RuntimeError(
+                "The installed runtime is not the reviewed Nyx Spiritism DLL."
+            )
+        for heroes in status["heroes"].values():
+            for _, name, original_first, *_ in HEROES:
+                expected = NECROMANCY if name == "Nyx" else original_first
+                state = heroes[name]
+                if state[1] != expected or state[0] == "unexpected":
+                    raise RuntimeError(
+                        f"Unexpected prerequisite skill state for {name}."
+                    )
+        return
+    if conflux_executables:
+        if status["runtime"] != "conflux-spiritism-0.1.0":
+            raise RuntimeError(
+                "The installed Conflux runtime is not the reviewed 0.1.0 DLL."
+            )
+        for heroes in status["heroes"].values():
+            if any(hero[0] != "spiritism" for hero in heroes.values()):
                 raise RuntimeError(
-                    f"Unexpected prerequisite skill state for {name}."
+                    "The installed Conflux hero records are incomplete."
                 )
+        return
+    raise RuntimeError(
+        "Apply Nyx Spiritism 0.1.5 or Conflux Spiritism 0.1.0 first."
+    )
 
 
 def create_backup(game_dir):
@@ -491,7 +515,7 @@ def restore_patch(game_dir, requested_backup):
 def main():
     parser = argparse.ArgumentParser(
         description=(
-            "Expand the tested Nyx Spiritism alias to every Conflux hero."
+            "Give every Conflux hero 10%/20%/30% Spiritism over Necromancy."
         )
     )
     parser.add_argument("command", choices=("status", "apply", "restore"))

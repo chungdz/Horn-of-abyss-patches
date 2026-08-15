@@ -13,6 +13,9 @@
 #define SECONDARY_SKILL_LARGE_DEFINITION_ADDRESS 0x006600F8
 #define SECONDARY_SKILL_LARGE_DEFINITION_CAPACITY 12
 #define GET_NECROMANCY_CREATURE_ADDRESS 0x004E3ED0
+#define GET_NECROMANCY_POWER_ADDRESS 0x004E3F40
+#define GET_NECROMANCY_POWER_PROLOGUE_SIZE 6
+#define SPIRITISM_RATE_BONUS_PER_LEVEL 0.05f
 #define SHOW_HERO_DIALOG_ADDRESS 0x004E1A70
 #define LEVEL_UP_ADDRESS 0x004DA990
 #define HD_HOTA_HERO_DIALOG_RVA 0x002350E0
@@ -80,6 +83,7 @@ static_assert(sizeof(SecondarySkillText) == 0x10, "Unexpected skill text layout"
 
 typedef LoadedDef *(__thiscall *LoadDef)(const char *name);
 typedef int (__thiscall *GetNecromancyCreature)(void *hero);
+typedef float (__thiscall *GetNecromancyPower)(void *hero, int capped);
 typedef void (__fastcall *ShowHeroDialog)(
   int hero_id,
   int dismissable,
@@ -88,10 +92,11 @@ typedef void (__fastcall *ShowHeroDialog)(
 typedef void (__thiscall *LevelUp)(void *hero);
 typedef void *(__stdcall *HdShowHeroDialog)(int hero_id);
 
-struct RelativePatch {
+struct CodePatch {
   uintptr_t address;
-  BYTE original[5];
-  BYTE replacement[5];
+  BYTE original[GET_NECROMANCY_POWER_PROLOGUE_SIZE];
+  BYTE replacement[GET_NECROMANCY_POWER_PROLOGUE_SIZE];
+  DWORD size;
 };
 
 static HMODULE self_module;
@@ -116,6 +121,7 @@ static uintptr_t singular_message_entry;
 static const char *saved_necromancy_message_plural;
 static const char *saved_necromancy_message_singular;
 static GetNecromancyCreature chained_get_necromancy_creature;
+static GetNecromancyPower chained_get_necromancy_power;
 static ShowHeroDialog chained_show_hero_dialog;
 static LevelUp chained_level_up;
 static HdShowHeroDialog chained_hd_show_hero_dialog;
@@ -123,19 +129,16 @@ static HdShowHeroDialog chained_hd_show_hero_dialog;
 static const char spiritism_name[] = "Spiritism";
 static const char basic_spiritism_description[] =
   "{Basic Spiritism}\n\n"
-  "After combat, 5% of the health of slain living creatures is summoned "
-  "as Pixies. Buildings and artifacts that enhance this power increase "
-  "the percentage.";
+  "After combat, 10% of the health of slain living creatures is summoned "
+  "as Pixies. Buildings and artifacts add their normal bonuses.";
 static const char advanced_spiritism_description[] =
   "{Advanced Spiritism}\n\n"
-  "After combat, 10% of the health of slain living creatures is summoned "
-  "as Pixies. Buildings and artifacts that enhance this power increase "
-  "the percentage.";
+  "After combat, 20% of the health of slain living creatures is summoned "
+  "as Pixies. Buildings and artifacts add their normal bonuses.";
 static const char expert_spiritism_description[] =
   "{Expert Spiritism}\n\n"
-  "After combat, 15% of the health of slain living creatures is summoned "
-  "as Pixies. Buildings and artifacts that enhance this power increase "
-  "the percentage.";
+  "After combat, 30% of the health of slain living creatures is summoned "
+  "as Pixies. Buildings and artifacts add their normal bonuses.";
 static const SecondarySkillText spiritism_text = {
   spiritism_name,
   {
@@ -369,17 +372,26 @@ static BOOL is_spiritist_hero_id(DWORD hero_id) {
     hero_id <= CONFLUX_HERO_LAST_ID;
 }
 
-static BOOL is_spiritist_hero(const void *hero) {
+static BYTE get_spiritism_level(const void *hero) {
   DWORD hero_id = 0;
   BYTE necromancy_level = 0;
-  return hero != NULL &&
-    safe_read((uintptr_t)hero + 0x1A, &hero_id, sizeof(hero_id)) &&
-    is_spiritist_hero_id(hero_id) &&
-    safe_read(
+  if (
+    hero == NULL ||
+    !safe_read((uintptr_t)hero + 0x1A, &hero_id, sizeof(hero_id)) ||
+    !is_spiritist_hero_id(hero_id) ||
+    !safe_read(
       (uintptr_t)hero + 0xC9 + SECONDARY_SKILL_NECROMANCY,
       &necromancy_level,
-      sizeof(necromancy_level)) &&
-    necromancy_level != 0;
+      sizeof(necromancy_level)) ||
+    necromancy_level < 1 ||
+    necromancy_level > 3) {
+    return 0;
+  }
+  return necromancy_level;
+}
+
+static BOOL is_spiritist_hero(const void *hero) {
+  return get_spiritism_level(hero) != 0;
 }
 
 static BOOL bytes_equal(
@@ -709,6 +721,21 @@ static int __thiscall direct_get_necromancy_creature(void *hero) {
   return chained_get_necromancy_creature(hero);
 }
 
+static float __thiscall direct_get_necromancy_power(
+  void *hero,
+  int capped) {
+  float power = chained_get_necromancy_power(hero, capped);
+  BYTE level = get_spiritism_level(hero);
+
+  if (level != 0) {
+    power += SPIRITISM_RATE_BONUS_PER_LEVEL * (float)level;
+    if (capped && power > 1.0f) {
+      power = 1.0f;
+    }
+  }
+  return power;
+}
+
 static void __fastcall direct_show_hero_dialog(
   int hero_id,
   int dismissable,
@@ -797,68 +824,170 @@ static BOOL get_relative_target(
   return TRUE;
 }
 
+static BOOL build_relative_instruction(
+  BYTE *instruction,
+  uintptr_t address,
+  BYTE opcode,
+  uintptr_t target) {
+  intptr_t displacement;
+
+  if (instruction == NULL) {
+    return FALSE;
+  }
+  displacement =
+    (intptr_t)target -
+    (intptr_t)(address + 5);
+  if (displacement < INT32_MIN || displacement > INT32_MAX) {
+    return FALSE;
+  }
+  instruction[0] = opcode;
+  instruction[1] = (BYTE)(displacement & 0xFF);
+  instruction[2] = (BYTE)((displacement >> 8) & 0xFF);
+  instruction[3] = (BYTE)((displacement >> 16) & 0xFF);
+  instruction[4] = (BYTE)((displacement >> 24) & 0xFF);
+  return TRUE;
+}
+
 static BOOL prepare_relative_patch(
   uintptr_t address,
   BYTE expected_opcode,
   void *replacement,
   uintptr_t expected_target,
   uintptr_t *original_target,
-  RelativePatch *patch) {
-  intptr_t displacement;
-
+  CodePatch *patch) {
   if (
     patch == NULL ||
     original_target == NULL ||
-    !safe_read(address, patch->original, sizeof(patch->original)) ||
+    !safe_read(address, patch->original, 5) ||
     !get_relative_target(address, expected_opcode, original_target) ||
     (expected_target != 0 && *original_target != expected_target)) {
     return FALSE;
   }
-  displacement =
-    (intptr_t)(uintptr_t)replacement -
-    (intptr_t)(address + sizeof(patch->replacement));
-  if (displacement < INT32_MIN || displacement > INT32_MAX) {
+  if (
+    !build_relative_instruction(
+      patch->replacement,
+      address,
+      expected_opcode,
+      (uintptr_t)replacement)) {
     return FALSE;
   }
   patch->address = address;
-  patch->replacement[0] = expected_opcode;
-  patch->replacement[1] = (BYTE)(displacement & 0xFF);
-  patch->replacement[2] = (BYTE)((displacement >> 8) & 0xFF);
-  patch->replacement[3] = (BYTE)((displacement >> 16) & 0xFF);
-  patch->replacement[4] = (BYTE)((displacement >> 24) & 0xFF);
+  patch->size = 5;
   return TRUE;
 }
 
-static BOOL apply_relative_patches(
-  RelativePatch *patches,
+static BOOL prepare_necromancy_power_patch(
+  uintptr_t *original_target,
+  CodePatch *patch) {
+  static const BYTE expected_prologue[
+    GET_NECROMANCY_POWER_PROLOGUE_SIZE] = {
+      0x55, 0x8B, 0xEC, 0x83, 0xEC, 0x08,
+    };
+  BYTE live[GET_NECROMANCY_POWER_PROLOGUE_SIZE];
+  BYTE *trampoline;
+  DWORD index;
+
+  if (
+    original_target == NULL ||
+    patch == NULL ||
+    !safe_read(GET_NECROMANCY_POWER_ADDRESS, live, sizeof(live))) {
+    return FALSE;
+  }
+  if (live[0] == 0xE9) {
+    BOOL prepared = prepare_relative_patch(
+      GET_NECROMANCY_POWER_ADDRESS,
+      0xE9,
+      (void *)direct_get_necromancy_power,
+      0,
+      original_target,
+      patch);
+    if (prepared) {
+      append_text("necromancy power backend=relative chain\r\n");
+    }
+    return prepared;
+  }
+  if (
+    !bytes_equal(
+      (const char *)live,
+      (const char *)expected_prologue,
+      sizeof(live))) {
+    return FALSE;
+  }
+
+  trampoline = (BYTE *)VirtualAlloc(
+    NULL,
+    GET_NECROMANCY_POWER_PROLOGUE_SIZE + 5,
+    MEM_COMMIT | MEM_RESERVE,
+    PAGE_EXECUTE_READWRITE);
+  if (trampoline == NULL) {
+    return FALSE;
+  }
+  for (index = 0; index < sizeof(live); index++) {
+    trampoline[index] = live[index];
+  }
+  if (
+    !build_relative_instruction(
+      trampoline + GET_NECROMANCY_POWER_PROLOGUE_SIZE,
+      (uintptr_t)trampoline + GET_NECROMANCY_POWER_PROLOGUE_SIZE,
+      0xE9,
+      GET_NECROMANCY_POWER_ADDRESS +
+        GET_NECROMANCY_POWER_PROLOGUE_SIZE)) {
+    return FALSE;
+  }
+  FlushInstructionCache(
+    GetCurrentProcess(),
+    trampoline,
+    GET_NECROMANCY_POWER_PROLOGUE_SIZE + 5);
+
+  patch->address = GET_NECROMANCY_POWER_ADDRESS;
+  patch->size = GET_NECROMANCY_POWER_PROLOGUE_SIZE;
+  for (index = 0; index < sizeof(live); index++) {
+    patch->original[index] = live[index];
+  }
+  if (
+    !build_relative_instruction(
+      patch->replacement,
+      GET_NECROMANCY_POWER_ADDRESS,
+      0xE9,
+      (uintptr_t)direct_get_necromancy_power)) {
+    return FALSE;
+  }
+  patch->replacement[5] = 0x90;
+  *original_target = (uintptr_t)trampoline;
+  append_text("necromancy power backend=validated entry trampoline\r\n");
+  return TRUE;
+}
+
+static BOOL apply_code_patches(
+  CodePatch *patches,
   DWORD count) {
   DWORD applied = 0;
-  BYTE verified[5];
+  BYTE verified[GET_NECROMANCY_POWER_PROLOGUE_SIZE];
 
   while (applied < count) {
     if (
       !safe_write(
         patches[applied].address,
         patches[applied].replacement,
-        sizeof(patches[applied].replacement)) ||
+        patches[applied].size) ||
       !safe_read(
         patches[applied].address,
         verified,
-        sizeof(verified)) ||
+        patches[applied].size) ||
       !bytes_equal(
         (const char *)verified,
         (const char *)patches[applied].replacement,
-        sizeof(verified))) {
+        patches[applied].size)) {
       safe_write(
         patches[applied].address,
         patches[applied].original,
-        sizeof(patches[applied].original));
+        patches[applied].size);
       while (applied != 0) {
         applied--;
         safe_write(
           patches[applied].address,
           patches[applied].original,
-          sizeof(patches[applied].original));
+          patches[applied].size);
       }
       return FALSE;
     }
@@ -872,11 +1001,27 @@ static BOOL runtime_targets_ready(
   uintptr_t *hd_dialog,
   uintptr_t *hd_call_1,
   uintptr_t *hd_call_2) {
+  static const BYTE power_prologue[
+    GET_NECROMANCY_POWER_PROLOGUE_SIZE] = {
+      0x55, 0x8B, 0xEC, 0x83, 0xEC, 0x08,
+    };
+  BYTE live_power[GET_NECROMANCY_POWER_PROLOGUE_SIZE];
   uintptr_t target = 0;
   HMODULE module = GetModuleHandleA("HD_HOTA.dll");
 
   if (
     module == NULL ||
+    !safe_read(
+      GET_NECROMANCY_POWER_ADDRESS,
+      live_power,
+      sizeof(live_power)) ||
+    (
+      live_power[0] != 0xE9 &&
+      !bytes_equal(
+        (const char *)live_power,
+        (const char *)power_prologue,
+        sizeof(live_power))
+    ) ||
     !get_relative_target(
       GET_NECROMANCY_CREATURE_ADDRESS,
       0xE9,
@@ -910,8 +1055,8 @@ static BOOL wait_for_runtime_targets(
   uintptr_t *hd_dialog,
   uintptr_t *hd_call_1,
   uintptr_t *hd_call_2) {
-  BYTE previous[25];
-  BYTE current[25];
+  BYTE previous[31];
+  BYTE current[31];
   BOOL have_previous = FALSE;
   DWORD stable_checks = 0;
   DWORD attempt;
@@ -924,11 +1069,15 @@ static BOOL wait_for_runtime_targets(
         hd_dialog,
         hd_call_1,
         hd_call_2) &&
-      safe_read(GET_NECROMANCY_CREATURE_ADDRESS, current, 5) &&
-      safe_read(SHOW_HERO_DIALOG_ADDRESS, current + 5, 5) &&
-      safe_read(LEVEL_UP_ADDRESS, current + 10, 5) &&
-      safe_read(*hd_call_1, current + 15, 5) &&
-      safe_read(*hd_call_2, current + 20, 5)) {
+      safe_read(
+        GET_NECROMANCY_POWER_ADDRESS,
+        current,
+        GET_NECROMANCY_POWER_PROLOGUE_SIZE) &&
+      safe_read(GET_NECROMANCY_CREATURE_ADDRESS, current + 6, 5) &&
+      safe_read(SHOW_HERO_DIALOG_ADDRESS, current + 11, 5) &&
+      safe_read(LEVEL_UP_ADDRESS, current + 16, 5) &&
+      safe_read(*hd_call_1, current + 21, 5) &&
+      safe_read(*hd_call_2, current + 26, 5)) {
       if (
         have_previous &&
         bytes_equal(
@@ -957,12 +1106,13 @@ static BOOL wait_for_runtime_targets(
 }
 
 static BOOL install_hooks(void) {
-  RelativePatch patches[5];
+  CodePatch patches[6];
   HMODULE hd_hota = NULL;
   uintptr_t hd_dialog_address = 0;
   uintptr_t hd_call_1 = 0;
   uintptr_t hd_call_2 = 0;
   uintptr_t target_necromancy = 0;
+  uintptr_t target_necromancy_power = 0;
   uintptr_t target_dialog = 0;
   uintptr_t target_level_up = 0;
   uintptr_t target_hd_1 = 0;
@@ -983,6 +1133,9 @@ static BOOL install_hooks(void) {
   append_code_bytes(
     "live GetNecromancyCreatureId",
     GET_NECROMANCY_CREATURE_ADDRESS);
+  append_code_bytes(
+    "live GetNecromancyPower",
+    GET_NECROMANCY_POWER_ADDRESS);
   append_code_bytes("live ShowHeroDialog", SHOW_HERO_DIALOG_ADDRESS);
   append_code_bytes("live LevelUp", LEVEL_UP_ADDRESS);
   append_code_bytes("live HD hero selection call 1", hd_call_1);
@@ -1004,41 +1157,44 @@ static BOOL install_hooks(void) {
       : "unavailable or unexpected filename literal\r\n");
 
   prepared =
+    prepare_necromancy_power_patch(
+      &target_necromancy_power,
+      &patches[0]) &&
     prepare_relative_patch(
       GET_NECROMANCY_CREATURE_ADDRESS,
       0xE9,
       (void *)direct_get_necromancy_creature,
       0,
       &target_necromancy,
-      &patches[0]) &&
+      &patches[1]) &&
     prepare_relative_patch(
       SHOW_HERO_DIALOG_ADDRESS,
       0xE9,
       (void *)direct_show_hero_dialog,
       0,
       &target_dialog,
-      &patches[1]) &&
+      &patches[2]) &&
     prepare_relative_patch(
       LEVEL_UP_ADDRESS,
       0xE9,
       (void *)direct_level_up,
       0,
       &target_level_up,
-      &patches[2]) &&
+      &patches[3]) &&
     prepare_relative_patch(
       hd_call_1,
       0xE8,
       (void *)direct_hd_show_hero_dialog,
       hd_dialog_address,
       &target_hd_1,
-      &patches[3]) &&
+      &patches[4]) &&
     prepare_relative_patch(
       hd_call_2,
       0xE8,
       (void *)direct_hd_show_hero_dialog,
       hd_dialog_address,
       &target_hd_2,
-      &patches[4]) &&
+      &patches[5]) &&
     target_hd_1 == target_hd_2 &&
     validate_secondary_skill_definition() &&
     validate_secondary_skill_large_definition() &&
@@ -1050,12 +1206,16 @@ static BOOL install_hooks(void) {
 
   chained_get_necromancy_creature =
     (GetNecromancyCreature)target_necromancy;
+  chained_get_necromancy_power =
+    (GetNecromancyPower)target_necromancy_power;
   chained_show_hero_dialog = (ShowHeroDialog)target_dialog;
   chained_level_up = (LevelUp)target_level_up;
   chained_hd_show_hero_dialog = (HdShowHeroDialog)target_hd_1;
 
-  prepared = apply_relative_patches(patches, 5);
+  prepared = apply_code_patches(patches, 6);
   append_text("necromancy hook=");
+  append_text(prepared ? "installed\r\n" : "failed\r\n");
+  append_text("necromancy rate hook=");
   append_text(prepared ? "installed\r\n" : "failed\r\n");
   append_text("hero dialog hook=");
   append_text(prepared ? "installed\r\n" : "failed\r\n");
@@ -1108,8 +1268,9 @@ static DWORD WINAPI patch_thread(LPVOID) {
   BOOL large_patched;
   BOOL hooks_installed;
 
-  append_text("Conflux Spiritism runtime 1\r\n");
-  append_text("heroes=128-143 creature=118 underlying-skill=12\r\n");
+  append_text("Conflux Spiritism runtime 2\r\n");
+  append_text(
+    "heroes=128-143 creature=118 rates=10/20/30 underlying-skill=12\r\n");
   write_log();
 
   hooks_installed = install_hooks();
