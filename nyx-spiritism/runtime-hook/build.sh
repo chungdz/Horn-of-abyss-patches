@@ -12,6 +12,9 @@ if [[ ! -x "$zig" ]]; then
   exit 1
 fi
 
+: "${SOURCE_DATE_EPOCH:=1786757395}"
+export SOURCE_DATE_EPOCH
+
 mkdir -p "$output_dir"
 ZIG_GLOBAL_CACHE_DIR="${ZIG_GLOBAL_CACHE_DIR:-/tmp/zig-global-cache}" \
 ZIG_LOCAL_CACHE_DIR="${ZIG_LOCAL_CACHE_DIR:-/tmp/zig-local-cache}" \

@@ -19,13 +19,36 @@ REPLACED_SKILL_TYPE_OFFSET = HERO_RECORD_OFFSET + 0x0C
 WISDOM = 7
 NECROMANCY = 12
 NECROMANCY_ICON_FRAMES = (39, 40, 41)
-RESOURCE_NAME = "SPIRIT.def"
+SMALL_RESOURCE_NAME = "SPIRIT.def"
+LARGE_RESOURCE_NAME = "SPIR82.def"
+RESOURCE_NAMES = (SMALL_RESOURCE_NAME, LARGE_RESOURCE_NAME)
+RUNTIME_LOG_MARKER = "Nyx Spiritism runtime 8"
 SECSKILL_HASH = (
     "298f31e75e045fcb1195d870efbed8d7f5ecb81bab18e0ffc89ccc6a81c91aee"
+)
+SECSK82_HASH = (
+    "a04c3bc1871fca84e66692e19cda5b77ecd67d524ebb86bd8564dbc5b6578892"
+)
+DIALOG_BACKGROUND_HASH = (
+    "4488f5b228850bddea2f92d25a22a71f7c5387f1ee6e92a7cf69717190677083"
 )
 NYX_RUNTIME_HASH = (
     "be7fb2e8a715b3abaa80eee4d6f24b6e19279c5c1dd9c624f620be396b3dab2d"
 )
+PREVIOUS_SPIRITISM_RUNTIME_HASHES = {
+    NYX_RUNTIME_HASH,
+    "54230707e8c864e1007deb6632c15238c4dadbfc78c9660432aa45262b361e46",
+    "a36721ed5751df07d793f5e5f3ea536c53c69e368a2c15e104ca8954833fb4fa",
+    "6944ce15b7277832ec91dff07e8add2ba947a6c9b14b7e3d93bbfec0b3e263eb",
+    "827b92684e1b013471f327cbb4c4bd5c4c52ad0ae40c1fb66e18ca41cbf2cbb3",
+    "f98ec471f1a457d496753e8339acb77ff54c86acda57f7b178f3c93cdfc3c634",
+    "79d714d83bb2fea65a4d6c1a64f4bd71a187907c12f8888bcee8eff59287ab28",
+    "a50c13d334658471018a44ff5b582154dcdadd513386a0ac94c368af334cd6cd",
+}
+PREVIOUS_SPIRITISM_RESOURCE_HASHES = {
+    "20ccb9bf8067b5483dda26ed77df6388f291ce3828d06a4cd4abb3dbe98a6e32",
+    "ba4ba357d2859b8e5dc8077bce00b1effc0a40b42fb25fa9f53ed76dd0d85eb3",
+}
 NYX_EXECUTABLE_HASHES = {
     "h3hota.exe": (
         "5ceb6ffb0d6517e361582ad2c6662a18132ecb706a2dd4776e1d489b02f68bcb"
@@ -52,16 +75,39 @@ ICON_ASSETS = (
         "SPIREXP.PCX",
     ),
 )
+LARGE_ICON_FRAME_NAMES = (
+    "SP82BAS.PCX",
+    "SP82ADV.PCX",
+    "SP82EXP.PCX",
+)
 PATCH_FILES = (
     "h3hota.exe",
     "h3hota HD.exe",
     "Data/SPIRIT.def",
+    "Data/SPIR82.def",
     "_HD3_Data/Compability/#hota/SPIRIT.def",
+    "_HD3_Data/Compability/#hota/SPIR82.def",
     "_HD3_Data/Compability/#hota15/SPIRIT.def",
+    "_HD3_Data/Compability/#hota15/SPIR82.def",
     "_HD3_Data/Compability/#hota/Files.ini",
     "_HD3_Data/Compability/#hota15/Files.ini",
     "_HD3_Data/Common/setseed.dll",
     "_HD3_Data/Common/NyxSpiritism.log",
+)
+SMALL_RESOURCE_PATHS = (
+    "Data/SPIRIT.def",
+    "_HD3_Data/Compability/#hota/SPIRIT.def",
+    "_HD3_Data/Compability/#hota15/SPIRIT.def",
+)
+LARGE_RESOURCE_PATHS = (
+    "Data/SPIR82.def",
+    "_HD3_Data/Compability/#hota/SPIR82.def",
+    "_HD3_Data/Compability/#hota15/SPIR82.def",
+)
+RESOURCE_PATHS = SMALL_RESOURCE_PATHS + LARGE_RESOURCE_PATHS
+REGISTRATION_PATHS = (
+    "_HD3_Data/Compability/#hota/Files.ini",
+    "_HD3_Data/Compability/#hota15/Files.ini",
 )
 
 
@@ -267,6 +313,20 @@ def extract_lod_entry(archive, name):
     return zlib.decompress(stored) if compressed_size else bytes(stored)
 
 
+def decode_lod_pcx(pcx):
+    if len(pcx) < 12 + 768:
+        raise RuntimeError("LOD-PCX resource is truncated.")
+    pixel_size, width, height = struct.unpack_from("<III", pcx, 0)
+    if pixel_size != width * height or len(pcx) != 12 + pixel_size + 768:
+        raise RuntimeError(f"Unexpected LOD-PCX layout: {width}x{height}.")
+    return (
+        width,
+        height,
+        pcx[12 : 12 + pixel_size],
+        pcx[12 + pixel_size :],
+    )
+
+
 def find_def_frame(definition, requested_frame):
     if len(definition) < 784 or struct.unpack_from("<I", definition, 0)[0] != 71:
         raise RuntimeError("Invalid secondary-skill DEF resource.")
@@ -293,20 +353,61 @@ def find_def_frame(definition, requested_frame):
     raise RuntimeError(f"DEF frame not found: {requested_frame}")
 
 
-def map_rgba_to_palette(definition, rgba, alpha_threshold=40):
+def map_rgba_to_palette(
+    definition,
+    rgba,
+    background,
+    target_width,
+    target_height,
+    background_left=84,
+    background_top=0,
+    alpha_threshold=40,
+):
     palette = [
         tuple(definition[16 + index * 3 : 19 + index * 3])
         for index in range(256)
     ]
+    background_width, background_height, background_pixels, background_palette = (
+        background
+    )
+    if background_width != 256 or background_height != 256:
+        raise RuntimeError(
+            "DiBoxBck.pcx must use the expected 256x256 dimensions."
+        )
     cache = {}
     mapped = bytearray(len(rgba) // 4)
+    if len(mapped) != target_width * target_height:
+        raise RuntimeError(
+            f"Expected {target_width}x{target_height} RGBA pixels."
+        )
     for pixel in range(len(mapped)):
         offset = pixel * 4
         alpha = rgba[offset + 3]
+        x = pixel % target_width
+        y = pixel // target_width
+        background_index = background_pixels[
+            ((background_top + y) % background_height) * background_width
+            + ((background_left + x) % background_width)
+        ]
+        background_offset = background_index * 3
+        background_color = tuple(
+            background_palette[background_offset : background_offset + 3]
+        )
         if alpha < alpha_threshold:
-            mapped[pixel] = 0
-            continue
-        color = tuple(rgba[offset : offset + 3])
+            color = background_color
+        elif alpha == 255:
+            color = tuple(rgba[offset : offset + 3])
+        else:
+            color = tuple(
+                round(
+                    (
+                        rgba[offset + channel] * alpha
+                        + background_color[channel] * (255 - alpha)
+                    )
+                    / 255
+                )
+                for channel in range(3)
+            )
         if color not in cache:
             best_index = 8
             best_distance = None
@@ -325,11 +426,43 @@ def map_rgba_to_palette(definition, rgba, alpha_threshold=40):
     return bytes(mapped)
 
 
-def replace_def_frame(definition, frame_index, frame_name, pixels):
+def place_rgba(
+    source,
+    source_width,
+    source_height,
+    target_width,
+    target_height,
+):
+    if len(source) != source_width * source_height * 4:
+        raise RuntimeError("RGBA source dimensions do not match its data.")
+    if source_width > target_width or source_height > target_height:
+        raise RuntimeError("RGBA source does not fit its target canvas.")
+    result = bytearray(target_width * target_height * 4)
+    left = (target_width - source_width) // 2
+    top = (target_height - source_height) // 2
+    for row in range(source_height):
+        source_start = row * source_width * 4
+        target_start = ((top + row) * target_width + left) * 4
+        result[target_start : target_start + source_width * 4] = source[
+            source_start : source_start + source_width * 4
+        ]
+    return bytes(result)
+
+
+def replace_def_frame(
+    definition,
+    frame_index,
+    frame_name,
+    pixels,
+    width,
+    height,
+):
     if len(frame_name.encode("latin1")) > 12:
         raise RuntimeError(f"DEF frame name is too long: {frame_name}")
-    if len(pixels) != 44 * 44:
-        raise RuntimeError("Spiritism icon must contain 44x44 indexed pixels.")
+    if len(pixels) != width * height:
+        raise RuntimeError(
+            f"Spiritism icon must contain {width}x{height} indexed pixels."
+        )
     name_offset, offset_table_entry = find_def_frame(definition, frame_index)
     updated = bytearray(definition)
     updated[name_offset : name_offset + 13] = b"\0" * 13
@@ -341,10 +474,10 @@ def replace_def_frame(definition, frame_index, frame_name, pixels):
         "<IIIIIIII",
         len(pixels),
         0,
-        44,
-        44,
-        44,
-        44,
+        width,
+        height,
+        width,
+        height,
         0,
         0,
     )
@@ -353,39 +486,91 @@ def replace_def_frame(definition, frame_index, frame_name, pixels):
     return bytes(updated)
 
 
-def build_spiritism_def(game_dir):
+def build_spiritism_resources(game_dir):
     archive = read_required(game_dir / "Data" / "H3sprite.lod")
-    definition = extract_lod_entry(archive, "Secskill.def")
-    if sha256(definition) != SECSKILL_HASH:
+    small_definition = extract_lod_entry(archive, "Secskill.def")
+    if sha256(small_definition) != SECSKILL_HASH:
         raise RuntimeError("The installed Secskill.def is not the supported version.")
-    updated = definition
+    large_definition = extract_lod_entry(archive, "SecSk82.def")
+    if sha256(large_definition) != SECSK82_HASH:
+        raise RuntimeError("The installed SecSk82.def is not the supported version.")
+    bitmap_archive = read_required(game_dir / "Data" / "H3bitmap.lod")
+    dialog_background = extract_lod_entry(bitmap_archive, "DiBoxBck.pcx")
+    if sha256(dialog_background) != DIALOG_BACKGROUND_HASH:
+        raise RuntimeError("The installed DiBoxBck.pcx is not the supported version.")
+    background = decode_lod_pcx(dialog_background)
+    small_updated = small_definition
+    large_updated = large_definition
     for frame_index, (icon_path, frame_name) in zip(
         NECROMANCY_ICON_FRAMES, ICON_ASSETS
     ):
         width, height, rgba = decode_png_rgba(icon_path)
-        resized = resize_rgba_area(width, height, rgba)
-        indexed = map_rgba_to_palette(definition, resized)
-        updated = replace_def_frame(
-            updated,
+        small_rgba = resize_rgba_area(width, height, rgba, 44, 44)
+        small_indexed = map_rgba_to_palette(
+            small_definition,
+            small_rgba,
+            background,
+            44,
+            44,
+        )
+        small_updated = replace_def_frame(
+            small_updated,
             frame_index,
             frame_name,
-            indexed,
+            small_indexed,
+            44,
+            44,
         )
-    return updated
+    for frame_index, icon_asset, frame_name in zip(
+        NECROMANCY_ICON_FRAMES,
+        ICON_ASSETS,
+        LARGE_ICON_FRAME_NAMES,
+    ):
+        icon_path = icon_asset[0]
+        width, height, rgba = decode_png_rgba(icon_path)
+        resized = resize_rgba_area(width, height, rgba, 82, 82)
+        large_rgba = place_rgba(resized, 82, 82, 82, 93)
+        large_indexed = map_rgba_to_palette(
+            large_definition,
+            large_rgba,
+            background,
+            82,
+            93,
+        )
+        large_updated = replace_def_frame(
+            large_updated,
+            frame_index,
+            frame_name,
+            large_indexed,
+            82,
+            93,
+        )
+    return {
+        SMALL_RESOURCE_NAME: small_updated,
+        LARGE_RESOURCE_NAME: large_updated,
+    }
 
 
 def registered_files_ini(original):
     newline = b"\r\n" if b"\r\n" in original else b"\n"
-    line = f'"{RESOURCE_NAME}"'.encode("latin1")
     existing = {
         item.strip().lower()
         for item in original.replace(b"\r\n", b"\n").split(b"\n")
         if item.strip()
     }
-    if line.lower() in existing:
-        return original
-    suffix = b"" if not original or original.endswith((b"\r", b"\n")) else newline
-    return original + suffix + line + newline
+    updated = original
+    for resource_name in RESOURCE_NAMES:
+        line = f'"{resource_name}"'.encode("latin1")
+        if line.lower() in existing:
+            continue
+        suffix = (
+            b""
+            if not updated or updated.endswith((b"\r", b"\n"))
+            else newline
+        )
+        updated += suffix + line + newline
+        existing.add(line.lower())
+    return updated
 
 
 def skill_state(executable):
@@ -413,17 +598,52 @@ def path_hash(path):
     return sha256(path.read_bytes()) if path.is_file() else None
 
 
-def resource_registered(path):
+def resource_registered(path, resource_names=RESOURCE_NAMES):
     if not path.is_file():
         return False
-    target = f'"{RESOURCE_NAME}"'.lower()
     lines = path.read_text(encoding="latin1").replace("\r\n", "\n").split("\n")
-    return target in {line.strip().lower() for line in lines}
+    existing = {line.strip().lower() for line in lines}
+    return all(
+        f'"{resource_name}"'.lower() in existing
+        for resource_name in resource_names
+    )
 
 
-def collect_status(game_dir, generated_resource=None):
+def generated_resource_for_path(generated_resources, relative):
+    if relative in SMALL_RESOURCE_PATHS:
+        return generated_resources[SMALL_RESOURCE_NAME]
+    if relative in LARGE_RESOURCE_PATHS:
+        return generated_resources[LARGE_RESOURCE_NAME]
+    raise RuntimeError(f"Unknown Spiritism resource path: {relative}")
+
+
+def collect_status(game_dir, generated_resources=None):
     runtime_hash = path_hash(game_dir / "_HD3_Data/Common/setseed.dll")
     expected_runtime_hash = sha256(read_required(RUNTIME_ASSET))
+    runtime_log_path = game_dir / "_HD3_Data/Common/NyxSpiritism.log"
+    if runtime_log_path.is_file():
+        runtime_log = runtime_log_path.read_text(
+            encoding="latin1",
+            errors="replace",
+        )
+        if (
+            RUNTIME_LOG_MARKER in runtime_log
+            and "necromancy hook=installed" in runtime_log
+            and "hero dialog hook=installed" in runtime_log
+            and "level-up hook=installed" in runtime_log
+            and "scoped skill resource alias=ready" in runtime_log
+            and "scoped large skill resource alias=ready" in runtime_log
+            and "HD hero selection hook=installed" in runtime_log
+            and "hook backend=direct relative chaining" in runtime_log
+            and "final=specialty fix and Spiritism hooks installed" in runtime_log
+        ):
+            last_launch = "hooks-installed"
+        elif RUNTIME_LOG_MARKER in runtime_log:
+            last_launch = "hooks-failed"
+        else:
+            last_launch = "stale-log"
+    else:
+        last_launch = "not-run"
     result = {
         "version": "HotA 1.8.0",
         "executables": {},
@@ -436,6 +656,7 @@ def collect_status(game_dir, generated_resource=None):
             if runtime_hash is None
             else "unknown"
         ),
+        "last_launch": last_launch,
         "resources": {},
         "registrations": {},
     }
@@ -444,13 +665,11 @@ def collect_status(game_dir, generated_resource=None):
         result["executables"][name] = (
             skill_state(read_required(path)) if path.is_file() else "missing"
         )
-    if generated_resource is not None:
-        expected_resource_hash = sha256(generated_resource)
-        for relative in (
-            "Data/SPIRIT.def",
-            "_HD3_Data/Compability/#hota/SPIRIT.def",
-            "_HD3_Data/Compability/#hota15/SPIRIT.def",
-        ):
+    if generated_resources is not None:
+        for relative in RESOURCE_PATHS:
+            expected_resource_hash = sha256(
+                generated_resource_for_path(generated_resources, relative)
+            )
             actual = path_hash(game_dir / relative)
             result["resources"][relative] = (
                 "installed"
@@ -459,22 +678,57 @@ def collect_status(game_dir, generated_resource=None):
                 if actual is None
                 else "unknown"
             )
-    for relative in (
-        "_HD3_Data/Compability/#hota/Files.ini",
-        "_HD3_Data/Compability/#hota15/Files.ini",
-    ):
+    for relative in REGISTRATION_PATHS:
         result["registrations"][relative] = resource_registered(
             game_dir / relative
         )
     return result
 
 
-def fully_applied(status):
+def spiritism_payload_applied(status):
     return (
         all(value == "spiritism" for value in status["executables"].values())
-        and status["runtime"] == "spiritism"
         and all(value == "installed" for value in status["resources"].values())
         and all(status["registrations"].values())
+    )
+
+
+def fully_applied(status):
+    return (
+        spiritism_payload_applied(status)
+        and status["runtime"] == "spiritism"
+    )
+
+
+def reviewed_spiritism_installation(game_dir, status, generated_resources):
+    accepted_small_resources = PREVIOUS_SPIRITISM_RESOURCE_HASHES | {
+        sha256(generated_resources[SMALL_RESOURCE_NAME])
+    }
+    expected_large_resource = sha256(
+        generated_resources[LARGE_RESOURCE_NAME]
+    )
+    accepted_runtimes = PREVIOUS_SPIRITISM_RUNTIME_HASHES | {
+        sha256(read_required(RUNTIME_ASSET))
+    }
+    return (
+        all(value == "spiritism" for value in status["executables"].values())
+        and all(
+            resource_registered(
+                game_dir / relative,
+                (SMALL_RESOURCE_NAME,),
+            )
+            for relative in REGISTRATION_PATHS
+        )
+        and path_hash(game_dir / "_HD3_Data/Common/setseed.dll")
+        in accepted_runtimes
+        and all(
+            path_hash(game_dir / relative) in accepted_small_resources
+            for relative in SMALL_RESOURCE_PATHS
+        )
+        and all(
+            path_hash(game_dir / relative) in (None, expected_large_resource)
+            for relative in LARGE_RESOURCE_PATHS
+        )
     )
 
 
@@ -483,6 +737,7 @@ def print_status(status):
     for name, state in status["executables"].items():
         print(f"  {name}: {state}")
     print(f"  runtime DLL: {status['runtime']}")
+    print(f"  last launch: {status['last_launch']}")
     for name, state in status["resources"].items():
         print(f"  {name}: {state}")
     for name, registered in status["registrations"].items():
@@ -543,10 +798,31 @@ def validate_nyx_baseline(game_dir):
 
 def apply_patch(game_dir):
     assert_hota_180(game_dir)
-    generated_resource = build_spiritism_def(game_dir)
-    status = collect_status(game_dir, generated_resource)
+    generated_resources = build_spiritism_resources(game_dir)
+    status = collect_status(game_dir, generated_resources)
     if fully_applied(status):
         print("Nyx Spiritism is already fully applied.")
+        return
+    if reviewed_spiritism_installation(game_dir, status, generated_resources):
+        runtime_path = game_dir / "_HD3_Data/Common/setseed.dll"
+        backup_dir = create_backup(game_dir)
+        for relative in RESOURCE_PATHS:
+            path = game_dir / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(
+                generated_resource_for_path(generated_resources, relative)
+            )
+        for relative in REGISTRATION_PATHS:
+            path = game_dir / relative
+            path.write_bytes(registered_files_ini(read_required(path)))
+        runtime_path.write_bytes(read_required(RUNTIME_ASSET))
+        final_status = collect_status(game_dir, generated_resources)
+        if not fully_applied(final_status):
+            raise RuntimeError(
+                f"Upgrade verification failed. Restore from {backup_dir}."
+            )
+        print_status(final_status)
+        print(f"Resources and runtime upgraded. Backup: {backup_dir}")
         return
     validate_nyx_baseline(game_dir)
     runtime = read_required(RUNTIME_ASSET)
@@ -556,24 +832,19 @@ def apply_patch(game_dir):
         path = game_dir / relative
         path.write_bytes(patch_executable(path.read_bytes()))
 
-    for relative in (
-        "Data/SPIRIT.def",
-        "_HD3_Data/Compability/#hota/SPIRIT.def",
-        "_HD3_Data/Compability/#hota15/SPIRIT.def",
-    ):
+    for relative in RESOURCE_PATHS:
         path = game_dir / relative
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(generated_resource)
+        path.write_bytes(
+            generated_resource_for_path(generated_resources, relative)
+        )
 
-    for relative in (
-        "_HD3_Data/Compability/#hota/Files.ini",
-        "_HD3_Data/Compability/#hota15/Files.ini",
-    ):
+    for relative in REGISTRATION_PATHS:
         path = game_dir / relative
         path.write_bytes(registered_files_ini(read_required(path)))
 
     (game_dir / "_HD3_Data/Common/setseed.dll").write_bytes(runtime)
-    final_status = collect_status(game_dir, generated_resource)
+    final_status = collect_status(game_dir, generated_resources)
     if not fully_applied(final_status):
         raise RuntimeError(
             f"Post-write verification failed. Restore from {backup_dir}."
@@ -640,8 +911,8 @@ def main():
     try:
         assert_hota_180(game_dir)
         if args.command == "status":
-            resource = build_spiritism_def(game_dir)
-            print_status(collect_status(game_dir, resource))
+            resources = build_spiritism_resources(game_dir)
+            print_status(collect_status(game_dir, resources))
         elif args.command == "apply":
             apply_patch(game_dir)
         else:

@@ -7,7 +7,7 @@ Horn of the Abyss.
 
 - [Nyx Pixie Elementalist](inteus-pixie-elementalist/README.md), version
   1.2.1, for HotA 1.8.0
-- [Nyx Spiritism](nyx-spiritism/README.md), version 0.1.0, for the installed
+- [Nyx Spiritism](nyx-spiritism/README.md), version 0.1.5, for the installed
   HotA 1.8.0 Nyx patch
 
 The repository contains patching code, documentation, and the user-supplied

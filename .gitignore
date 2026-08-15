@@ -1,6 +1,7 @@
 **/backups/
 *.dll
 !inteus-pixie-elementalist/assets/NyxRuntimeFix.dll
+!nyx-spiritism/assets/NyxSpiritismRuntime.dll
 *.exe
 *.lod
 *.snd

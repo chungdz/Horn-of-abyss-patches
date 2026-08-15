@@ -1,6 +1,6 @@
 # Nyx Spiritism
 
-Version 0.1.0
+Version 0.1.5
 
 This HotA 1.8.0 patch gives Nyx a Nyx-only secondary skill named Spiritism.
 It is implemented as Necromancy internally, preserving the game's existing
@@ -39,9 +39,13 @@ The three original RGBA images are preserved under `assets/`:
 - `advanced-spiritism.png`: two spirits
 - `expert-spiritism.png`: three spirits
 
-During installation, `patch.py` downsamples them to 44x44, maps them to the
-installed `Secskill.def` palette, and creates a loose `SPIRIT.def`. No original
-Heroes III resource is stored in this repository.
+During installation, `patch.py` builds two palette-matched resources:
+
+- `SPIRIT.def`, with 44x44 icons for hero and pregame panels
+- `SPIR82.def`, with 82x93 icons for the right-click skill detail dialog
+
+Both use the game's brown dialog texture behind the supplied transparent art.
+No original Heroes III resource is stored in this repository.
 
 ## Usage
 
@@ -53,6 +57,9 @@ From this directory:
 python3 patch.py status --game-dir "../.."
 python3 patch.py apply --game-dir "../.."
 ```
+
+Running `apply` on a reviewed earlier Spiritism installation upgrades the
+generated resources and runtime DLL in place after creating another backup.
 
 The patcher creates a timestamped backup under:
 
@@ -77,21 +84,32 @@ python3 patch.py restore --game-dir "../.." \
 
 1. Start a new map with Nyx.
 2. Confirm her skills are Basic Spiritism and Basic Fire Magic.
-3. Open Nyx's hero screen and confirm the one-spirit icon and Spiritism text.
-4. Win a battle against living creatures and confirm Pixies are raised.
-5. Equip Vampire's Cowl and confirm the raised amount increases.
-6. Own a Necromancy Amplifier and confirm its bonus increases the amount.
-7. Advance Spiritism and confirm the two-spirit and three-spirit icons appear.
-8. Open a normal Necromancy hero and confirm Necromancy still has its original
+3. Open Nyx's hero screen and confirm the one-spirit icon has a brown
+   background and the label reads Spiritism.
+4. In the pregame hero-selection panel, confirm Nyx shows Basic Spiritism and
+   the one-spirit icon.
+5. Right-click Spiritism and confirm the large custom icon and description
+   appear.
+6. Start and finish a battle against living creatures without a crash.
+7. Confirm Pixies are raised and the result message begins with
+   `Practicing the art of Spiritism`.
+8. Equip Vampire's Cowl and confirm the raised amount increases.
+9. Own a Necromancy Amplifier and confirm its bonus increases the amount.
+10. Advance Spiritism and confirm the two-spirit and three-spirit icons appear.
+11. Open a normal Necromancy hero and confirm Necromancy still has its original
    name, description, icons, and raised creature.
 
 ## Known Limitations
 
 - Spiritism is stored as Necromancy in saves and maps.
 - Nyx cannot possess separate Necromancy and Spiritism skills.
-- The custom name and icons are applied during Nyx's hero and level-up dialogs.
-  A less common notification generated outside those dialogs, such as a map
-  object teaching the skill, can still use the word `Necromancy`.
+- Nyx's hero and level-up dialogs temporarily use the Spiritism text table and
+  custom resource names. The pregame panel uses the same scoped alias while
+  constructing Nyx's controls. Every alias is restored before combat or
+  another hero screen can use it.
+- A less common notification generated outside the hero and level-up paths,
+  such as a map object teaching the skill, can still use the word
+  `Necromancy`.
 - The patch is version-locked to the reviewed HotA 1.8.0 executables and the
   currently installed Nyx runtime DLL.
 - Multiplayer requires every player to use identical files.
