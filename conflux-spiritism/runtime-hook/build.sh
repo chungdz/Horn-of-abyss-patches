@@ -44,4 +44,4 @@ ZIG_LOCAL_CACHE_DIR="${ZIG_LOCAL_CACHE_DIR:-/tmp/zig-local-cache}" \
 
 file "$output"
 objdump -p "$output" |
-  sed -n '/The Import Tables/,$ { /PE File Base Relocations/q; p; }'
+  sed -n '/The Import Tables/,$p'

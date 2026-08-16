@@ -3,8 +3,10 @@
 #include <stdint.h>
 
 #define HERO_ID_NYX 140
+#define HERO_ID_VEHR 212
 #define CONFLUX_HERO_FIRST_ID 128
 #define CONFLUX_HERO_LAST_ID 143
+#define LEGACY_SPECIALTY_FRAME_COUNT 156
 #define CREATURE_ID_PIXIE 118
 #define SECONDARY_SKILL_NECROMANCY 12
 #define SECONDARY_SKILL_TEXT_ADDRESS 0x0067DCF0
@@ -12,23 +14,39 @@
 #define SECONDARY_SKILL_DEFINITION_CAPACITY 16
 #define SECONDARY_SKILL_LARGE_DEFINITION_ADDRESS 0x006600F8
 #define SECONDARY_SKILL_LARGE_DEFINITION_CAPACITY 12
+#define SPECIALTY_DEFINITION_ADDRESS 0x00679D90
+#define SPECIALTY_DEFINITION_CAPACITY 12
 #define GET_NECROMANCY_CREATURE_ADDRESS 0x004E3ED0
 #define GET_NECROMANCY_POWER_ADDRESS 0x004E3F40
 #define GET_NECROMANCY_POWER_PROLOGUE_SIZE 6
 #define SPIRITISM_RATE_BONUS_PER_LEVEL 0.05f
 #define SHOW_HERO_DIALOG_ADDRESS 0x004E1A70
 #define LEVEL_UP_ADDRESS 0x004DA990
+#define SWAP_DIALOG_BUILDER_ADDRESS 0x005AAD90
 #define HD_HOTA_HERO_DIALOG_RVA 0x002350E0
 #define HD_HOTA_HERO_DIALOG_CALL_1_RVA 0x0023708A
 #define HD_HOTA_HERO_DIALOG_CALL_2_RVA 0x00237C9D
+#define HD_HOTA_SPECIALTY_DEFINITION_RVA 0x002A043C
+#define HD_HOTA_SPECIALTY_DEFINITION_CAPACITY 12
 #define HD_HOTA_SECONDARY_SKILL_DEFINITION_RVA 0x002A0450
 #define HD_HOTA_SECONDARY_SKILL_DEFINITION_CAPACITY 16
+#define HD_HOTA_SWAP_SPECIALTY_DEFINITION_RVA 0x002975F0
+#define HD_HOTA_SWAP_SKILL_DEFINITION_RVA 0x00297650
+#define HD_HOTA_SWAP_DEFINITION_CAPACITY 12
+#define HOTA_INSPECTED_HERO_POINTER_RVA 0x00250E74
+#define HOTA_INSPECTION_GUARD_1_SITE_RVA 0x00002E5D
+#define HOTA_INSPECTION_GUARD_1_CONTINUE_RVA 0x00002E66
+#define HOTA_INSPECTION_GUARD_1_RETURN_RVA 0x00002EED
+#define HOTA_INSPECTION_GUARD_2_SITE_RVA 0x00003F2D
+#define HOTA_INSPECTION_GUARD_2_CONTINUE_RVA 0x00003F36
+#define HOTA_INSPECTION_GUARD_2_RETURN_RVA 0x00003FBD
 #define GENERAL_TEXT_ADDRESS 0x006A5DC4
 #define GENERAL_TEXT_TABLE_OFFSET 0x20
 #define NECROMANCY_MESSAGE_PLURAL_OFFSET 0x2AC
 #define NECROMANCY_MESSAGE_SINGULAR_OFFSET 0x2B0
 #define LOAD_DEF_ADDRESS 0x0055C9C0
 #define LOG_CAPACITY 32768
+#define CODE_PATCH_CAPACITY 9
 
 struct ResourceItem {
   void *vtable;
@@ -91,11 +109,14 @@ typedef void (__fastcall *ShowHeroDialog)(
   int right_click);
 typedef void (__thiscall *LevelUp)(void *hero);
 typedef void *(__stdcall *HdShowHeroDialog)(int hero_id);
+typedef void *(__thiscall *SwapDialogBuilder)(
+  void *dialog,
+  void **heroes);
 
 struct CodePatch {
   uintptr_t address;
-  BYTE original[GET_NECROMANCY_POWER_PROLOGUE_SIZE];
-  BYTE replacement[GET_NECROMANCY_POWER_PROLOGUE_SIZE];
+  BYTE original[CODE_PATCH_CAPACITY];
+  BYTE replacement[CODE_PATCH_CAPACITY];
   DWORD size;
 };
 
@@ -112,10 +133,24 @@ static BOOL skill_definition_applied;
 static char saved_secondary_skill_large_definition[
   SECONDARY_SKILL_LARGE_DEFINITION_CAPACITY];
 static BOOL skill_large_definition_applied;
+static char saved_specialty_definition[SPECIALTY_DEFINITION_CAPACITY];
+static BOOL specialty_definition_applied;
+static uintptr_t hd_specialty_definition_address;
+static char saved_hd_specialty_definition[
+  HD_HOTA_SPECIALTY_DEFINITION_CAPACITY];
+static BOOL hd_specialty_definition_applied;
 static uintptr_t hd_secondary_skill_definition_address;
 static char saved_hd_secondary_skill_definition[
   HD_HOTA_SECONDARY_SKILL_DEFINITION_CAPACITY];
 static BOOL hd_skill_definition_applied;
+static uintptr_t hd_swap_specialty_definition_address;
+static char saved_hd_swap_specialty_definition[
+  HD_HOTA_SWAP_DEFINITION_CAPACITY];
+static BOOL hd_swap_specialty_definition_applied;
+static uintptr_t hd_swap_skill_definition_address;
+static char saved_hd_swap_skill_definition[
+  HD_HOTA_SWAP_DEFINITION_CAPACITY];
+static BOOL hd_swap_skill_definition_applied;
 static uintptr_t plural_message_entry;
 static uintptr_t singular_message_entry;
 static const char *saved_necromancy_message_plural;
@@ -125,6 +160,7 @@ static GetNecromancyPower chained_get_necromancy_power;
 static ShowHeroDialog chained_show_hero_dialog;
 static LevelUp chained_level_up;
 static HdShowHeroDialog chained_hd_show_hero_dialog;
+static SwapDialogBuilder chained_swap_dialog_builder;
 
 static const char spiritism_name[] = "Spiritism";
 static const char basic_spiritism_description[] =
@@ -155,10 +191,26 @@ static const char native_large_definition_name[
   SECONDARY_SKILL_LARGE_DEFINITION_CAPACITY] = "secsk82.def";
 static const char spiritism_large_definition_name[
   SECONDARY_SKILL_LARGE_DEFINITION_CAPACITY] = "SPIR82.def";
+static const char native_specialty_definition_name[
+  SPECIALTY_DEFINITION_CAPACITY] = "un44.def";
+static const char nyx_specialty_definition_name[
+  SPECIALTY_DEFINITION_CAPACITY] = "IX44.def";
+static const char native_hd_specialty_definition_name[
+  HD_HOTA_SPECIALTY_DEFINITION_CAPACITY] = "UN44.def";
+static const char nyx_hd_specialty_definition_name[
+  HD_HOTA_SPECIALTY_DEFINITION_CAPACITY] = "IX44.def";
 static const char native_hd_definition_name[
   HD_HOTA_SECONDARY_SKILL_DEFINITION_CAPACITY] = "Secskill.def";
 static const char spiritism_hd_definition_name[
   HD_HOTA_SECONDARY_SKILL_DEFINITION_CAPACITY] = "SPIRIT.def";
+static const char native_hd_swap_specialty_definition_name[
+  HD_HOTA_SWAP_DEFINITION_CAPACITY] = "un32.def";
+static const char nyx_hd_swap_specialty_definition_name[
+  HD_HOTA_SWAP_DEFINITION_CAPACITY] = "IX32.def";
+static const char native_hd_swap_skill_definition_name[
+  HD_HOTA_SWAP_DEFINITION_CAPACITY] = "secsk32.def";
+static const char spiritism_hd_swap_skill_definition_name[
+  HD_HOTA_SWAP_DEFINITION_CAPACITY] = "SPIR32.def";
 static const char spiritism_message_plural[] =
   "Practicing the art of Spiritism, your hero is able to raise %d of the "
   "enemy's dead to return under their service as %s.";
@@ -321,48 +373,23 @@ static BOOL read_frame(
   return safe_read((uintptr_t)*entry, frame, sizeof(*frame));
 }
 
-static BOOL patch_specialty_frame(
+static BOOL verify_specialty_frame(
   LoadDef load_def,
-  const char *target_name,
-  const char *source_name) {
-  LoadedDef *target = load_def(target_name);
-  LoadedDef *source = load_def(source_name);
-  void **target_entry = NULL;
-  void **source_entry = NULL;
-  void *target_frame = NULL;
-  void *source_frame = NULL;
-  void *verified = NULL;
+  const char *definition_name,
+  DWORD frame_index,
+  const char *label) {
+  LoadedDef *definition = load_def(definition_name);
+  void **entry = NULL;
+  void *frame = NULL;
 
-  append_text("specialty ");
-  append_text(target_name);
-  append_text(" <- ");
-  append_text(source_name);
-  append_text("\r\n");
-  if (
-    target == NULL ||
-    source == NULL ||
-    !read_frame(target, HERO_ID_NYX, &target_entry, &target_frame) ||
-    !read_frame(source, HERO_ID_NYX, &source_entry, &source_frame)) {
-    append_text("result=invalid definition or frame table\r\n");
+  append_text(label);
+  append_text("=");
+  if (!read_frame(definition, frame_index, &entry, &frame)) {
+    append_text("unavailable\r\n");
     return FALSE;
   }
-  append_frame("target frame", target_frame);
-  append_frame("source frame", source_frame);
-  if (target_frame == source_frame) {
-    append_text("result=already shared\r\n");
-    return TRUE;
-  }
-  if (!safe_write((uintptr_t)target_entry, &source_frame, sizeof(source_frame))) {
-    append_text("result=write failed\r\n");
-    return FALSE;
-  }
-  if (
-    !safe_read((uintptr_t)target_entry, &verified, sizeof(verified)) ||
-    verified != source_frame) {
-    append_text("result=verification failed\r\n");
-    return FALSE;
-  }
-  append_text("result=patched\r\n");
+  append_text("available\r\n");
+  append_frame("extended frame", frame);
   return TRUE;
 }
 
@@ -372,17 +399,32 @@ static BOOL is_spiritist_hero_id(DWORD hero_id) {
     hero_id <= CONFLUX_HERO_LAST_ID;
 }
 
+static BOOL read_hero_id(const void *hero, DWORD *hero_id) {
+  return
+    hero != NULL &&
+    hero_id != NULL &&
+    safe_read((uintptr_t)hero + 0x1A, hero_id, sizeof(*hero_id));
+}
+
+static BOOL read_necromancy_level(
+  const void *hero,
+  BYTE *necromancy_level) {
+  return
+    hero != NULL &&
+    necromancy_level != NULL &&
+    safe_read(
+      (uintptr_t)hero + 0xC9 + SECONDARY_SKILL_NECROMANCY,
+      necromancy_level,
+      sizeof(*necromancy_level));
+}
+
 static BYTE get_spiritism_level(const void *hero) {
   DWORD hero_id = 0;
   BYTE necromancy_level = 0;
   if (
-    hero == NULL ||
-    !safe_read((uintptr_t)hero + 0x1A, &hero_id, sizeof(hero_id)) ||
+    !read_hero_id(hero, &hero_id) ||
     !is_spiritist_hero_id(hero_id) ||
-    !safe_read(
-      (uintptr_t)hero + 0xC9 + SECONDARY_SKILL_NECROMANCY,
-      &necromancy_level,
-      sizeof(necromancy_level)) ||
+    !read_necromancy_level(hero, &necromancy_level) ||
     necromancy_level < 1 ||
     necromancy_level > 3) {
     return 0;
@@ -405,6 +447,66 @@ static BOOL bytes_equal(
     }
   }
   return TRUE;
+}
+
+static BOOL validate_definition_alias(
+  uintptr_t address,
+  const char *native_name,
+  DWORD size) {
+  char current[SECONDARY_SKILL_DEFINITION_CAPACITY];
+  if (
+    size > sizeof(current) ||
+    !safe_read(address, current, size)) {
+    return FALSE;
+  }
+  return bytes_equal(current, native_name, size);
+}
+
+static BOOL apply_definition_alias(
+  uintptr_t address,
+  const char *native_name,
+  const char *replacement_name,
+  char *saved_name,
+  DWORD size,
+  BOOL *applied) {
+  char verified[SECONDARY_SKILL_DEFINITION_CAPACITY];
+
+  if (
+    applied == NULL ||
+    saved_name == NULL ||
+    size > sizeof(verified)) {
+    return FALSE;
+  }
+  if (*applied) {
+    return TRUE;
+  }
+  if (
+    !safe_read(address, saved_name, size) ||
+    !bytes_equal(saved_name, native_name, size) ||
+    !safe_write(address, replacement_name, size)) {
+    return FALSE;
+  }
+  *applied = TRUE;
+  if (
+    !safe_read(address, verified, size) ||
+    !bytes_equal(verified, replacement_name, size)) {
+    safe_write(address, saved_name, size);
+    *applied = FALSE;
+    return FALSE;
+  }
+  return TRUE;
+}
+
+static void restore_definition_alias(
+  uintptr_t address,
+  const char *saved_name,
+  DWORD size,
+  BOOL *applied) {
+  if (applied == NULL || !*applied) {
+    return;
+  }
+  safe_write(address, saved_name, size);
+  *applied = FALSE;
 }
 
 static BOOL get_spiritism_text_address(uintptr_t *address) {
@@ -580,6 +682,58 @@ static void end_spiritism_ui(void) {
   }
 }
 
+static BOOL validate_specialty_definition(void) {
+  return validate_definition_alias(
+    SPECIALTY_DEFINITION_ADDRESS,
+    native_specialty_definition_name,
+    sizeof(native_specialty_definition_name));
+}
+
+static BOOL apply_nyx_specialty_definition(void) {
+  return apply_definition_alias(
+    SPECIALTY_DEFINITION_ADDRESS,
+    native_specialty_definition_name,
+    nyx_specialty_definition_name,
+    saved_specialty_definition,
+    sizeof(saved_specialty_definition),
+    &specialty_definition_applied);
+}
+
+static void restore_nyx_specialty_definition(void) {
+  restore_definition_alias(
+    SPECIALTY_DEFINITION_ADDRESS,
+    saved_specialty_definition,
+    sizeof(saved_specialty_definition),
+    &specialty_definition_applied);
+}
+
+static BOOL validate_hd_specialty_definition(void) {
+  return
+    hd_specialty_definition_address != 0 &&
+    validate_definition_alias(
+      hd_specialty_definition_address,
+      native_hd_specialty_definition_name,
+      sizeof(native_hd_specialty_definition_name));
+}
+
+static BOOL apply_hd_nyx_specialty_definition(void) {
+  return apply_definition_alias(
+    hd_specialty_definition_address,
+    native_hd_specialty_definition_name,
+    nyx_hd_specialty_definition_name,
+    saved_hd_specialty_definition,
+    sizeof(saved_hd_specialty_definition),
+    &hd_specialty_definition_applied);
+}
+
+static void restore_hd_nyx_specialty_definition(void) {
+  restore_definition_alias(
+    hd_specialty_definition_address,
+    saved_hd_specialty_definition,
+    sizeof(saved_hd_specialty_definition),
+    &hd_specialty_definition_applied);
+}
+
 static BOOL validate_hd_secondary_skill_definition(void) {
   char current[HD_HOTA_SECONDARY_SKILL_DEFINITION_CAPACITY];
   return
@@ -636,6 +790,60 @@ static void restore_hd_spiritism_definition(void) {
     saved_hd_secondary_skill_definition,
     sizeof(saved_hd_secondary_skill_definition));
   hd_skill_definition_applied = FALSE;
+}
+
+static BOOL validate_hd_swap_specialty_definition(void) {
+  return
+    hd_swap_specialty_definition_address != 0 &&
+    validate_definition_alias(
+      hd_swap_specialty_definition_address,
+      native_hd_swap_specialty_definition_name,
+      sizeof(native_hd_swap_specialty_definition_name));
+}
+
+static BOOL apply_hd_swap_nyx_specialty_definition(void) {
+  return apply_definition_alias(
+    hd_swap_specialty_definition_address,
+    native_hd_swap_specialty_definition_name,
+    nyx_hd_swap_specialty_definition_name,
+    saved_hd_swap_specialty_definition,
+    sizeof(saved_hd_swap_specialty_definition),
+    &hd_swap_specialty_definition_applied);
+}
+
+static void restore_hd_swap_nyx_specialty_definition(void) {
+  restore_definition_alias(
+    hd_swap_specialty_definition_address,
+    saved_hd_swap_specialty_definition,
+    sizeof(saved_hd_swap_specialty_definition),
+    &hd_swap_specialty_definition_applied);
+}
+
+static BOOL validate_hd_swap_skill_definition(void) {
+  return
+    hd_swap_skill_definition_address != 0 &&
+    validate_definition_alias(
+      hd_swap_skill_definition_address,
+      native_hd_swap_skill_definition_name,
+      sizeof(native_hd_swap_skill_definition_name));
+}
+
+static BOOL apply_hd_swap_spiritism_definition(void) {
+  return apply_definition_alias(
+    hd_swap_skill_definition_address,
+    native_hd_swap_skill_definition_name,
+    spiritism_hd_swap_skill_definition_name,
+    saved_hd_swap_skill_definition,
+    sizeof(saved_hd_swap_skill_definition),
+    &hd_swap_skill_definition_applied);
+}
+
+static void restore_hd_swap_spiritism_definition(void) {
+  restore_definition_alias(
+    hd_swap_skill_definition_address,
+    saved_hd_swap_skill_definition,
+    sizeof(saved_hd_swap_skill_definition),
+    &hd_swap_skill_definition_applied);
 }
 
 static BOOL get_general_text_entries(
@@ -743,11 +951,15 @@ static void __fastcall direct_show_hero_dialog(
   int right_click) {
   if (is_spiritist_hero_id((DWORD)hero_id)) {
     begin_spiritism_ui();
+    if (hero_id == HERO_ID_NYX) {
+      apply_nyx_specialty_definition();
+    }
     chained_show_hero_dialog(
       hero_id,
       dismissable,
       not_in_town,
       right_click);
+    restore_nyx_specialty_definition();
     end_spiritism_ui();
     return;
   }
@@ -776,10 +988,91 @@ static void *__stdcall direct_hd_show_hero_dialog(int hero_id) {
   }
   begin_spiritism_ui();
   apply_hd_spiritism_definition();
+  if (hero_id == HERO_ID_NYX) {
+    apply_hd_nyx_specialty_definition();
+  }
   dialog = chained_hd_show_hero_dialog(hero_id);
+  restore_hd_nyx_specialty_definition();
   restore_hd_spiritism_definition();
   end_spiritism_ui();
   return dialog;
+}
+
+static BOOL get_swap_alias_state(
+  void **heroes,
+  BOOL *use_spiritism,
+  BOOL *use_nyx_specialty) {
+  BOOL any_spiritist = FALSE;
+  BOOL ordinary_necromancer = FALSE;
+  BOOL nyx_present = FALSE;
+  BOOL specialty_frames_supported = TRUE;
+  DWORD index;
+
+  if (
+    heroes == NULL ||
+    use_spiritism == NULL ||
+    use_nyx_specialty == NULL) {
+    return FALSE;
+  }
+  for (index = 0; index < 2; index++) {
+    void *hero = NULL;
+    DWORD hero_id = 0;
+    BYTE necromancy_level = 0;
+    BOOL spiritist;
+
+    if (
+      !safe_read(
+        (uintptr_t)heroes + index * sizeof(hero),
+        &hero,
+        sizeof(hero)) ||
+      !read_hero_id(hero, &hero_id) ||
+      !read_necromancy_level(hero, &necromancy_level)) {
+      return FALSE;
+    }
+    spiritist =
+      is_spiritist_hero_id(hero_id) &&
+      necromancy_level >= 1 &&
+      necromancy_level <= 3;
+    if (spiritist) {
+      any_spiritist = TRUE;
+    } else if (necromancy_level != 0) {
+      ordinary_necromancer = TRUE;
+    }
+    if (hero_id == HERO_ID_NYX) {
+      nyx_present = TRUE;
+    }
+    if (hero_id >= LEGACY_SPECIALTY_FRAME_COUNT) {
+      specialty_frames_supported = FALSE;
+    }
+  }
+  *use_spiritism = any_spiritist && !ordinary_necromancer;
+  *use_nyx_specialty = nyx_present && specialty_frames_supported;
+  return TRUE;
+}
+
+static void *__fastcall direct_swap_dialog_builder(
+  void *dialog,
+  void *,
+  void **heroes) {
+  BOOL use_spiritism = FALSE;
+  BOOL use_nyx_specialty = FALSE;
+  void *result;
+
+  if (get_swap_alias_state(
+    heroes,
+    &use_spiritism,
+    &use_nyx_specialty)) {
+    if (use_spiritism) {
+      apply_hd_swap_spiritism_definition();
+    }
+    if (use_nyx_specialty) {
+      apply_hd_swap_nyx_specialty_definition();
+    }
+  }
+  result = chained_swap_dialog_builder(dialog, heroes);
+  restore_hd_swap_nyx_specialty_definition();
+  restore_hd_swap_spiritism_definition();
+  return result;
 }
 
 static void append_code_bytes(const char *label, uintptr_t address) {
@@ -848,6 +1141,13 @@ static BOOL build_relative_instruction(
   return TRUE;
 }
 
+static void write_u32(BYTE *destination, DWORD value) {
+  destination[0] = (BYTE)(value & 0xFF);
+  destination[1] = (BYTE)((value >> 8) & 0xFF);
+  destination[2] = (BYTE)((value >> 16) & 0xFF);
+  destination[3] = (BYTE)((value >> 24) & 0xFF);
+}
+
 static BOOL prepare_relative_patch(
   uintptr_t address,
   BYTE expected_opcode,
@@ -873,6 +1173,99 @@ static BOOL prepare_relative_patch(
   }
   patch->address = address;
   patch->size = 5;
+  return TRUE;
+}
+
+static BOOL prepare_inspection_guard_patch(
+  HMODULE hota,
+  uintptr_t site_rva,
+  uintptr_t continue_rva,
+  uintptr_t return_rva,
+  CodePatch *patch) {
+  BYTE live[CODE_PATCH_CAPACITY];
+  BYTE *stub;
+  DWORD pointer_address;
+  DWORD index;
+  uintptr_t module = (uintptr_t)hota;
+  uintptr_t site = module + site_rva;
+  uintptr_t expected_pointer = module + HOTA_INSPECTED_HERO_POINTER_RVA;
+
+  if (
+    hota == NULL ||
+    patch == NULL ||
+    !safe_read(site, live, sizeof(live))) {
+    return FALSE;
+  }
+  pointer_address =
+    (DWORD)live[2] |
+    ((DWORD)live[3] << 8) |
+    ((DWORD)live[4] << 16) |
+    ((DWORD)live[5] << 24);
+  if (
+    live[0] != 0x8B ||
+    live[1] != 0x0D ||
+    pointer_address != (DWORD)expected_pointer ||
+    live[6] != 0x8B ||
+    live[7] != 0x49 ||
+    live[8] != 0x1A) {
+    return FALSE;
+  }
+
+  stub = (BYTE *)VirtualAlloc(
+    NULL,
+    32,
+    MEM_COMMIT | MEM_RESERVE,
+    PAGE_EXECUTE_READWRITE);
+  if (stub == NULL) {
+    return FALSE;
+  }
+
+  /* Preserve the original load/dereference and skip it only for NULL. */
+  stub[0] = 0x8B;
+  stub[1] = 0x0D;
+  write_u32(stub + 2, pointer_address);
+  stub[6] = 0x85;
+  stub[7] = 0xC9;
+  stub[8] = 0x75;
+  stub[9] = 0x05;
+  if (
+    !build_relative_instruction(
+      stub + 10,
+      (uintptr_t)stub + 10,
+      0xE9,
+      module + return_rva)) {
+    VirtualFree(stub, 0, MEM_RELEASE);
+    return FALSE;
+  }
+  stub[15] = 0x8B;
+  stub[16] = 0x49;
+  stub[17] = 0x1A;
+  if (
+    !build_relative_instruction(
+      stub + 18,
+      (uintptr_t)stub + 18,
+      0xE9,
+      module + continue_rva)) {
+    VirtualFree(stub, 0, MEM_RELEASE);
+    return FALSE;
+  }
+  FlushInstructionCache(GetCurrentProcess(), stub, 23);
+
+  patch->address = site;
+  patch->size = sizeof(live);
+  for (index = 0; index < sizeof(live); index++) {
+    patch->original[index] = live[index];
+    patch->replacement[index] = 0x90;
+  }
+  if (
+    !build_relative_instruction(
+      patch->replacement,
+      site,
+      0xE9,
+      (uintptr_t)stub)) {
+    VirtualFree(stub, 0, MEM_RELEASE);
+    return FALSE;
+  }
   return TRUE;
 }
 
@@ -962,7 +1355,7 @@ static BOOL apply_code_patches(
   CodePatch *patches,
   DWORD count) {
   DWORD applied = 0;
-  BYTE verified[GET_NECROMANCY_POWER_PROLOGUE_SIZE];
+  BYTE verified[CODE_PATCH_CAPACITY];
 
   while (applied < count) {
     if (
@@ -997,6 +1390,7 @@ static BOOL apply_code_patches(
 }
 
 static BOOL runtime_targets_ready(
+  HMODULE *hota,
   HMODULE *hd_hota,
   uintptr_t *hd_dialog,
   uintptr_t *hd_call_1,
@@ -1007,9 +1401,12 @@ static BOOL runtime_targets_ready(
     };
   BYTE live_power[GET_NECROMANCY_POWER_PROLOGUE_SIZE];
   uintptr_t target = 0;
+  HMODULE hota_module = GetModuleHandleA("HotA.dll");
   HMODULE module = GetModuleHandleA("HD_HOTA.dll");
 
   if (
+    hota == NULL ||
+    hota_module == NULL ||
     module == NULL ||
     !safe_read(
       GET_NECROMANCY_POWER_ADDRESS,
@@ -1033,9 +1430,14 @@ static BOOL runtime_targets_ready(
     !get_relative_target(
       LEVEL_UP_ADDRESS,
       0xE9,
+      &target) ||
+    !get_relative_target(
+      SWAP_DIALOG_BUILDER_ADDRESS,
+      0xE9,
       &target)) {
     return FALSE;
   }
+  *hota = hota_module;
   *hd_hota = module;
   *hd_dialog = (uintptr_t)module + HD_HOTA_HERO_DIALOG_RVA;
   *hd_call_1 = (uintptr_t)module + HD_HOTA_HERO_DIALOG_CALL_1_RVA;
@@ -1051,12 +1453,13 @@ static BOOL runtime_targets_ready(
 }
 
 static BOOL wait_for_runtime_targets(
+  HMODULE *hota,
   HMODULE *hd_hota,
   uintptr_t *hd_dialog,
   uintptr_t *hd_call_1,
   uintptr_t *hd_call_2) {
-  BYTE previous[31];
-  BYTE current[31];
+  BYTE previous[36];
+  BYTE current[36];
   BOOL have_previous = FALSE;
   DWORD stable_checks = 0;
   DWORD attempt;
@@ -1065,6 +1468,7 @@ static BOOL wait_for_runtime_targets(
   for (attempt = 0; attempt < 40; attempt++) {
     if (
       runtime_targets_ready(
+        hota,
         hd_hota,
         hd_dialog,
         hd_call_1,
@@ -1077,7 +1481,8 @@ static BOOL wait_for_runtime_targets(
       safe_read(SHOW_HERO_DIALOG_ADDRESS, current + 11, 5) &&
       safe_read(LEVEL_UP_ADDRESS, current + 16, 5) &&
       safe_read(*hd_call_1, current + 21, 5) &&
-      safe_read(*hd_call_2, current + 26, 5)) {
+      safe_read(*hd_call_2, current + 26, 5) &&
+      safe_read(SWAP_DIALOG_BUILDER_ADDRESS, current + 31, 5)) {
       if (
         have_previous &&
         bytes_equal(
@@ -1106,7 +1511,8 @@ static BOOL wait_for_runtime_targets(
 }
 
 static BOOL install_hooks(void) {
-  CodePatch patches[6];
+  CodePatch patches[9];
+  HMODULE hota = NULL;
   HMODULE hd_hota = NULL;
   uintptr_t hd_dialog_address = 0;
   uintptr_t hd_call_1 = 0;
@@ -1117,9 +1523,11 @@ static BOOL install_hooks(void) {
   uintptr_t target_level_up = 0;
   uintptr_t target_hd_1 = 0;
   uintptr_t target_hd_2 = 0;
+  uintptr_t target_swap_dialog_builder = 0;
   BOOL prepared;
 
   if (!wait_for_runtime_targets(
+    &hota,
     &hd_hota,
     &hd_dialog_address,
     &hd_call_1,
@@ -1129,6 +1537,12 @@ static BOOL install_hooks(void) {
   }
   hd_secondary_skill_definition_address =
     (uintptr_t)hd_hota + HD_HOTA_SECONDARY_SKILL_DEFINITION_RVA;
+  hd_specialty_definition_address =
+    (uintptr_t)hd_hota + HD_HOTA_SPECIALTY_DEFINITION_RVA;
+  hd_swap_specialty_definition_address =
+    (uintptr_t)hd_hota + HD_HOTA_SWAP_SPECIALTY_DEFINITION_RVA;
+  hd_swap_skill_definition_address =
+    (uintptr_t)hd_hota + HD_HOTA_SWAP_SKILL_DEFINITION_RVA;
 
   append_code_bytes(
     "live GetNecromancyCreatureId",
@@ -1140,6 +1554,15 @@ static BOOL install_hooks(void) {
   append_code_bytes("live LevelUp", LEVEL_UP_ADDRESS);
   append_code_bytes("live HD hero selection call 1", hd_call_1);
   append_code_bytes("live HD hero selection call 2", hd_call_2);
+  append_code_bytes(
+    "live HD exchange dialog builder",
+    SWAP_DIALOG_BUILDER_ADDRESS);
+  append_code_bytes(
+    "live hero inspection dereference 1",
+    (uintptr_t)hota + HOTA_INSPECTION_GUARD_1_SITE_RVA);
+  append_code_bytes(
+    "live hero inspection dereference 2",
+    (uintptr_t)hota + HOTA_INSPECTION_GUARD_2_SITE_RVA);
   append_text("scoped skill resource alias=");
   append_text(
     validate_secondary_skill_definition()
@@ -1153,6 +1576,18 @@ static BOOL install_hooks(void) {
   append_text("HD hero selection alias=");
   append_text(
     validate_hd_secondary_skill_definition()
+      ? "ready\r\n"
+      : "unavailable or unexpected filename literal\r\n");
+  append_text("scoped Nyx specialty aliases=");
+  append_text(
+    validate_specialty_definition() &&
+      validate_hd_specialty_definition() &&
+      validate_hd_swap_specialty_definition()
+      ? "ready\r\n"
+      : "unavailable or unexpected filename literal\r\n");
+  append_text("scoped exchange Spiritism alias=");
+  append_text(
+    validate_hd_swap_skill_definition()
       ? "ready\r\n"
       : "unavailable or unexpected filename literal\r\n");
 
@@ -1195,10 +1630,33 @@ static BOOL install_hooks(void) {
       hd_dialog_address,
       &target_hd_2,
       &patches[5]) &&
+    prepare_inspection_guard_patch(
+      hota,
+      HOTA_INSPECTION_GUARD_1_SITE_RVA,
+      HOTA_INSPECTION_GUARD_1_CONTINUE_RVA,
+      HOTA_INSPECTION_GUARD_1_RETURN_RVA,
+      &patches[6]) &&
+    prepare_inspection_guard_patch(
+      hota,
+      HOTA_INSPECTION_GUARD_2_SITE_RVA,
+      HOTA_INSPECTION_GUARD_2_CONTINUE_RVA,
+      HOTA_INSPECTION_GUARD_2_RETURN_RVA,
+      &patches[7]) &&
+    prepare_relative_patch(
+      SWAP_DIALOG_BUILDER_ADDRESS,
+      0xE9,
+      (void *)direct_swap_dialog_builder,
+      0,
+      &target_swap_dialog_builder,
+      &patches[8]) &&
     target_hd_1 == target_hd_2 &&
     validate_secondary_skill_definition() &&
     validate_secondary_skill_large_definition() &&
-    validate_hd_secondary_skill_definition();
+    validate_hd_secondary_skill_definition() &&
+    validate_specialty_definition() &&
+    validate_hd_specialty_definition() &&
+    validate_hd_swap_specialty_definition() &&
+    validate_hd_swap_skill_definition();
   if (!prepared) {
     append_text("direct hooks=target validation failed\r\n");
     return FALSE;
@@ -1211,8 +1669,10 @@ static BOOL install_hooks(void) {
   chained_show_hero_dialog = (ShowHeroDialog)target_dialog;
   chained_level_up = (LevelUp)target_level_up;
   chained_hd_show_hero_dialog = (HdShowHeroDialog)target_hd_1;
+  chained_swap_dialog_builder =
+    (SwapDialogBuilder)target_swap_dialog_builder;
 
-  prepared = apply_code_patches(patches, 6);
+  prepared = apply_code_patches(patches, 9);
   append_text("necromancy hook=");
   append_text(prepared ? "installed\r\n" : "failed\r\n");
   append_text("necromancy rate hook=");
@@ -1222,6 +1682,10 @@ static BOOL install_hooks(void) {
   append_text("level-up hook=");
   append_text(prepared ? "installed\r\n" : "failed\r\n");
   append_text("HD hero selection hook=");
+  append_text(prepared ? "installed\r\n" : "failed\r\n");
+  append_text("HD exchange dialog hook=");
+  append_text(prepared ? "installed\r\n" : "failed\r\n");
+  append_text("hero inspection null guards=");
   append_text(prepared ? "installed\r\n" : "failed\r\n");
   append_text("hook backend=direct relative chaining\r\n");
   return prepared;
@@ -1264,23 +1728,27 @@ static void write_log(void) {
 
 static DWORD WINAPI patch_thread(LPVOID) {
   LoadDef load_def = (LoadDef)LOAD_DEF_ADDRESS;
-  BOOL small_patched;
-  BOOL large_patched;
+  BOOL vehr_frame_available;
   BOOL hooks_installed;
 
-  append_text("Conflux Spiritism runtime 2\r\n");
+  append_text("Conflux Spiritism runtime 8\r\n");
   append_text(
     "heroes=128-143 creature=118 rates=10/20/30 underlying-skill=12\r\n");
   write_log();
 
   hooks_installed = install_hooks();
-  small_patched = patch_specialty_frame(load_def, "UN32.def", "IX32.def");
-  large_patched = patch_specialty_frame(load_def, "UN44.def", "IX44.def");
+  append_text("specialty atlas mutation=disabled\r\n");
+  vehr_frame_available = verify_specialty_frame(
+    load_def,
+    "UN44.def",
+    HERO_ID_VEHR,
+    "extended specialty Vehr frame");
 
   append_text("final=");
   append_text(
-    small_patched && large_patched && hooks_installed
-      ? "specialty fix and Spiritism hooks installed"
+    vehr_frame_available &&
+      hooks_installed
+      ? "Spiritism and Nyx UI hooks installed; shared atlas untouched"
       : "one or more runtime operations failed");
   append_text("\r\n");
   write_log();

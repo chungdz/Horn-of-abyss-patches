@@ -15,7 +15,7 @@ HERO_RECORD_STRIDE = 0x5C
 FIRST_SKILL_TYPE_OFFSET = 0x27CBDC
 NECROMANCY = 12
 EMPTY_SKILL = 0xFFFFFFFF
-RUNTIME_LOG_MARKER = "Conflux Spiritism runtime 2"
+RUNTIME_LOG_MARKER = "Conflux Spiritism runtime 8"
 
 HEROES = (
     (128, "Pasis", 22, 1, 20, 1),
@@ -74,23 +74,39 @@ NYX_RUNTIME_HASH = (
 CONFLUX_010_RUNTIME_HASH = (
     "eabfbe0bf6e98612895359e2d96746fc9405ddd32c43aad901e07753ab0670d0"
 )
+CONFLUX_020_RUNTIME_HASH = (
+    "c5ce44bddf87e5e2a581c3574adf3f4a67a44ab9f35c3f1594227bae58f254d5"
+)
+CONFLUX_021_RUNTIME_HASH = (
+    "3391a5df7297f8f9bccbb414b45d7f2fccb6b61f2894c1a787ef572a02c20d5a"
+)
+CONFLUX_022_RUNTIME_HASH = (
+    "0d07e59563addc1b4cf0e3d80c62a73c9bb2ff7761206aafc4e5a233908f9749"
+)
+CONFLUX_023_RUNTIME_HASH = (
+    "78ebff46f61197e46cca580a159dbea42f64053bfdef12b1fce479163d06434a"
+)
+CONFLUX_024_RUNTIME_HASH = (
+    "2a6c35a1188a1018a5f6e598e6ecec6b9bd42355892d91038d6c140c17056163"
+)
+CONFLUX_025_RUNTIME_HASH = (
+    "acee00f853c68da4d260ae7bb51b9dcf14f3ed4f6cd6a201a16441f792161dab"
+)
 SMALL_RESOURCE_HASH = (
     "ba4ba357d2859b8e5dc8077bce00b1effc0a40b42fb25fa9f53ed76dd0d85eb3"
 )
 LARGE_RESOURCE_HASH = (
     "8016d09158fee026bcccc83a5c43dd9d8a4cf6a42db113f8e51e81270b63392f"
 )
+EXCHANGE_RESOURCE_HASH = (
+    "0ab002201dcb81a18c989f0e49e4d37b716ff209dd86ada651f9a51c5078511c"
+)
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_GAME_DIR = SCRIPT_DIR.parent.parent
 RUNTIME_ASSET = SCRIPT_DIR / "assets" / "ConfluxSpiritismRuntime.dll"
-PATCH_FILES = (
-    "h3hota.exe",
-    "h3hota HD.exe",
-    "_HD3_Data/Common/setseed.dll",
-    "_HD3_Data/Common/ConfluxSpiritism.log",
-)
-RESOURCE_HASHES = {
+EXCHANGE_RESOURCE_ASSET = SCRIPT_DIR / "assets" / "SPIR32.def"
+CORE_RESOURCE_HASHES = {
     "Data/SPIRIT.def": SMALL_RESOURCE_HASH,
     "_HD3_Data/Compability/#hota/SPIRIT.def": SMALL_RESOURCE_HASH,
     "_HD3_Data/Compability/#hota15/SPIRIT.def": SMALL_RESOURCE_HASH,
@@ -98,9 +114,65 @@ RESOURCE_HASHES = {
     "_HD3_Data/Compability/#hota/SPIR82.def": LARGE_RESOURCE_HASH,
     "_HD3_Data/Compability/#hota15/SPIR82.def": LARGE_RESOURCE_HASH,
 }
+NYX_SPECIALTY_RESOURCE_HASHES = {
+    "Data/IX32.def": (
+        "63ff856d3ed52daaf3b834715c60a7e39da3223fce17357367cb45ee9f810198"
+    ),
+    "_HD3_Data/Compability/#hota/IX32.def": (
+        "63ff856d3ed52daaf3b834715c60a7e39da3223fce17357367cb45ee9f810198"
+    ),
+    "_HD3_Data/Compability/#hota15/IX32.def": (
+        "63ff856d3ed52daaf3b834715c60a7e39da3223fce17357367cb45ee9f810198"
+    ),
+    "Data/IX44.def": (
+        "eeb281b6490e4ef7e786f40e8601ca64ffa05247cd4c0c7d337382da631cf807"
+    ),
+    "_HD3_Data/Compability/#hota/IX44.def": (
+        "eeb281b6490e4ef7e786f40e8601ca64ffa05247cd4c0c7d337382da631cf807"
+    ),
+    "_HD3_Data/Compability/#hota15/IX44.def": (
+        "eeb281b6490e4ef7e786f40e8601ca64ffa05247cd4c0c7d337382da631cf807"
+    ),
+}
+EXCHANGE_RESOURCE_PATHS = (
+    "Data/SPIR32.def",
+    "_HD3_Data/Compability/#hota/SPIR32.def",
+    "_HD3_Data/Compability/#hota15/SPIR32.def",
+)
+RESOURCE_HASHES = {
+    **CORE_RESOURCE_HASHES,
+    **NYX_SPECIALTY_RESOURCE_HASHES,
+    **{
+        relative: EXCHANGE_RESOURCE_HASH
+        for relative in EXCHANGE_RESOURCE_PATHS
+    },
+}
 REGISTRATION_PATHS = (
     "_HD3_Data/Compability/#hota/Files.ini",
     "_HD3_Data/Compability/#hota15/Files.ini",
+)
+LEGACY_SPECIALTY_OVERRIDE_HASHES = {
+    "_HD3_Data/Compability/#hota/UN32.def": (
+        "bdba4ee42dbe8ac19f063c7307e9f709f7d3749e66e9689161ff4a9e52267314"
+    ),
+    "_HD3_Data/Compability/#hota/UN44.def": (
+        "cd018113d38330cea5a2194c9086ba77f5135e05ffba8a423dde002f28313889"
+    ),
+    "_HD3_Data/Compability/#hota15/UN32.def": (
+        "bdba4ee42dbe8ac19f063c7307e9f709f7d3749e66e9689161ff4a9e52267314"
+    ),
+    "_HD3_Data/Compability/#hota15/UN44.def": (
+        "cd018113d38330cea5a2194c9086ba77f5135e05ffba8a423dde002f28313889"
+    ),
+}
+PATCH_FILES = (
+    "h3hota.exe",
+    "h3hota HD.exe",
+    "_HD3_Data/Common/setseed.dll",
+    "_HD3_Data/Common/ConfluxSpiritism.log",
+    *REGISTRATION_PATHS,
+    *LEGACY_SPECIALTY_OVERRIDE_HASHES,
+    *EXCHANGE_RESOURCE_PATHS,
 )
 
 
@@ -214,15 +286,22 @@ def patch_executable(executable, expected_hash):
     return result
 
 
-def resources_ready(game_dir):
+def resources_ready(game_dir, resource_hashes=RESOURCE_HASHES):
     return all(
         path_hash(game_dir / relative) == expected
-        for relative, expected in RESOURCE_HASHES.items()
+        for relative, expected in resource_hashes.items()
     )
 
 
-def registrations_ready(game_dir):
-    targets = {'"spirit.def"', '"spir82.def"'}
+def spiritism_registrations_ready(game_dir, include_exchange=True):
+    targets = {
+        '"ix32.def"',
+        '"ix44.def"',
+        '"spirit.def"',
+        '"spir82.def"',
+    }
+    if include_exchange:
+        targets.add('"spir32.def"')
     for relative in REGISTRATION_PATHS:
         path = game_dir / relative
         if not path.is_file():
@@ -239,6 +318,87 @@ def registrations_ready(game_dir):
     return True
 
 
+def registered_files_ini(original):
+    newline = b"\r\n" if b"\r\n" in original else b"\n"
+    existing = {
+        item.strip().lower()
+        for item in original.replace(b"\r\n", b"\n").split(b"\n")
+        if item.strip()
+    }
+    updated = original
+    for resource_name in ("SPIRIT.def", "SPIR32.def", "SPIR82.def"):
+        line = f'"{resource_name}"'.encode("latin1")
+        if line.lower() in existing:
+            continue
+        suffix = (
+            b""
+            if not updated or updated.endswith((b"\r", b"\n"))
+            else newline
+        )
+        updated += suffix + line + newline
+        existing.add(line.lower())
+    return updated
+
+
+def specialty_override_state(game_dir):
+    present = 0
+    for relative, expected_hash in LEGACY_SPECIALTY_OVERRIDE_HASHES.items():
+        actual_hash = path_hash(game_dir / relative)
+        if actual_hash is None:
+            continue
+        if actual_hash != expected_hash:
+            return "unknown"
+        present += 1
+
+    registered = 0
+    for relative in REGISTRATION_PATHS:
+        path = game_dir / relative
+        if not path.is_file():
+            return "unknown"
+        lines = {
+            line.strip().lower()
+            for line in path.read_text(encoding="latin1")
+            .replace("\r\n", "\n")
+            .split("\n")
+            if line.strip()
+        }
+        registered += sum(
+            target in lines for target in ('"un32.def"', '"un44.def"')
+        )
+
+    if present == 0 and registered == 0:
+        return "removed"
+    if present == len(LEGACY_SPECIALTY_OVERRIDE_HASHES) and registered == 4:
+        return "legacy-installed"
+    return "mixed-known"
+
+
+def remove_specialty_overrides(game_dir):
+    for relative, expected_hash in LEGACY_SPECIALTY_OVERRIDE_HASHES.items():
+        path = game_dir / relative
+        actual_hash = path_hash(path)
+        if actual_hash is None:
+            continue
+        if actual_hash != expected_hash:
+            raise RuntimeError(f"Refusing to remove unknown override: {path}")
+        path.unlink()
+
+    removed = {'"un32.def"', '"un44.def"'}
+    for relative in REGISTRATION_PATHS:
+        path = game_dir / relative
+        original = read_required(path).decode("latin1")
+        lines = original.replace("\r\n", "\n").split("\n")
+        updated = [
+            line
+            for line in lines
+            if line.strip().lower() not in removed
+        ]
+        text = "\r\n".join(updated)
+        if original.endswith(("\n", "\r")) and not text.endswith("\r\n"):
+            text += "\r\n"
+        path.write_text(text, encoding="latin1", newline="")
+
+
 def last_launch_state(game_dir):
     path = game_dir / "_HD3_Data/Common/ConfluxSpiritism.log"
     if not path.is_file():
@@ -251,8 +411,17 @@ def last_launch_state(game_dir):
         and "hero dialog hook=installed" in log
         and "level-up hook=installed" in log
         and "HD hero selection hook=installed" in log
+        and "HD exchange dialog hook=installed" in log
+        and "hero inspection null guards=installed" in log
+        and "specialty atlas mutation=disabled" in log
+        and "scoped Nyx specialty aliases=ready" in log
+        and "scoped exchange Spiritism alias=ready" in log
+        and "extended specialty Vehr frame=available" in log
         and "hook backend=direct relative chaining" in log
-        and "final=specialty fix and Spiritism hooks installed" in log
+        and (
+            "final=Spiritism and Nyx UI hooks installed; shared atlas untouched"
+            in log
+        )
     ):
         return "hooks-installed"
     if RUNTIME_LOG_MARKER in log:
@@ -267,7 +436,8 @@ def collect_status(game_dir):
         "heroes": {},
         "runtime": "unknown",
         "resources": resources_ready(game_dir),
-        "registrations": registrations_ready(game_dir),
+        "registrations": spiritism_registrations_ready(game_dir),
+        "specialty_overrides": specialty_override_state(game_dir),
         "last_launch": last_launch_state(game_dir),
     }
     for name in ("h3hota.exe", "h3hota HD.exe"):
@@ -293,6 +463,18 @@ def collect_status(game_dir):
         if runtime_hash == expected_runtime_hash
         else "conflux-spiritism-0.1.0"
         if runtime_hash == CONFLUX_010_RUNTIME_HASH
+        else "conflux-spiritism-0.2.0"
+        if runtime_hash == CONFLUX_020_RUNTIME_HASH
+        else "conflux-spiritism-0.2.1"
+        if runtime_hash == CONFLUX_021_RUNTIME_HASH
+        else "conflux-spiritism-0.2.2"
+        if runtime_hash == CONFLUX_022_RUNTIME_HASH
+        else "conflux-spiritism-0.2.3"
+        if runtime_hash == CONFLUX_023_RUNTIME_HASH
+        else "conflux-spiritism-0.2.4"
+        if runtime_hash == CONFLUX_024_RUNTIME_HASH
+        else "conflux-spiritism-0.2.5"
+        if runtime_hash == CONFLUX_025_RUNTIME_HASH
         else "nyx-spiritism"
         if runtime_hash == NYX_RUNTIME_HASH
         else "missing"
@@ -316,6 +498,7 @@ def fully_applied(status):
         and status["runtime"] == "conflux-spiritism"
         and status["resources"]
         and status["registrations"]
+        and status["specialty_overrides"] == "removed"
     )
 
 
@@ -348,6 +531,10 @@ def print_status(status):
         "  HD registrations: "
         + ("registered" if status["registrations"] else "incomplete")
     )
+    print(
+        "  truncated specialty overrides: "
+        + status["specialty_overrides"]
+    )
     print(f"  complete: {'yes' if fully_applied(status) else 'no'}")
 
     first_heroes = status["heroes"].get("h3hota.exe", {})
@@ -375,9 +562,20 @@ def validate_prerequisite(game_dir, status):
         state == "conflux-spiritism"
         for state in status["executables"].values()
     )
-    if not status["resources"] or not status["registrations"]:
+    if (
+        not resources_ready(game_dir, CORE_RESOURCE_HASHES)
+        or not resources_ready(game_dir, NYX_SPECIALTY_RESOURCE_HASHES)
+        or not spiritism_registrations_ready(
+            game_dir,
+            include_exchange=False,
+        )
+    ):
         raise RuntimeError(
             "The reviewed Nyx Spiritism resources are not fully installed."
+        )
+    if status["specialty_overrides"] == "unknown":
+        raise RuntimeError(
+            "An unknown UN32.def or UN44.def HD override is installed."
         )
     if nyx_executables:
         if status["runtime"] != "nyx-spiritism":
@@ -394,9 +592,18 @@ def validate_prerequisite(game_dir, status):
                     )
         return
     if conflux_executables:
-        if status["runtime"] != "conflux-spiritism-0.1.0":
+        if status["runtime"] not in (
+            "conflux-spiritism",
+            "conflux-spiritism-0.1.0",
+            "conflux-spiritism-0.2.0",
+            "conflux-spiritism-0.2.1",
+            "conflux-spiritism-0.2.2",
+            "conflux-spiritism-0.2.3",
+            "conflux-spiritism-0.2.4",
+            "conflux-spiritism-0.2.5",
+        ):
             raise RuntimeError(
-                "The installed Conflux runtime is not the reviewed 0.1.0 DLL."
+                "The installed Conflux runtime is not a reviewed upgrade source."
             )
         for heroes in status["heroes"].values():
             if any(hero[0] != "spiritism" for hero in heroes.values()):
@@ -405,7 +612,8 @@ def validate_prerequisite(game_dir, status):
                 )
         return
     raise RuntimeError(
-        "Apply Nyx Spiritism 0.1.5 or Conflux Spiritism 0.1.0 first."
+        "Apply Nyx Spiritism 0.1.5 or a reviewed Conflux Spiritism release "
+        "first."
     )
 
 
@@ -452,6 +660,9 @@ def apply_patch(game_dir):
         return
     validate_prerequisite(game_dir, status)
     runtime = read_required(RUNTIME_ASSET)
+    exchange_resource = read_required(EXCHANGE_RESOURCE_ASSET)
+    if sha256(exchange_resource) != EXCHANGE_RESOURCE_HASH:
+        raise RuntimeError("The packaged SPIR32.def checksum is unexpected.")
     backup_dir = create_backup(game_dir)
 
     for name in ("h3hota.exe", "h3hota HD.exe"):
@@ -463,6 +674,14 @@ def apply_patch(game_dir):
             )
         )
     (game_dir / "_HD3_Data/Common/setseed.dll").write_bytes(runtime)
+    for relative in EXCHANGE_RESOURCE_PATHS:
+        path = game_dir / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(exchange_resource)
+    for relative in REGISTRATION_PATHS:
+        path = game_dir / relative
+        path.write_bytes(registered_files_ini(read_required(path)))
+    remove_specialty_overrides(game_dir)
 
     final_status = collect_status(game_dir)
     if not fully_applied(final_status):
