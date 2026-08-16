@@ -11,6 +11,9 @@ Horn of the Abyss.
   HotA 1.8.0 Nyx patch
 - [Conflux Spiritism](conflux-spiritism/README.md), version 0.2.0, extending
   the tested Nyx Spiritism patch to all Conflux heroes
+- [Chinese HotA 1.8.0 Conflux Spiritism Port](chinese-180-conflux-spiritism/README.md),
+  version 0.1.2, unresolved after failed in-game validation; its attempted
+  GBK and HD Mod 5.6 R10 port remains documented for further investigation
 
 The repository contains patching code, documentation, and the user-supplied
 Nyx portrait. It does not contain Heroes III or Horn of the Abyss executables,

@@ -23,27 +23,45 @@
 #define SHOW_HERO_DIALOG_ADDRESS 0x004E1A70
 #define LEVEL_UP_ADDRESS 0x004DA990
 #define SWAP_DIALOG_BUILDER_ADDRESS 0x005AAD90
+#ifdef CHINESE_HOTA_R10
+#define HD_HOTA_HERO_DIALOG_RVA 0x002346F0
+#define HD_HOTA_HERO_DIALOG_CALL_1_RVA 0x0023669A
+#define HD_HOTA_HERO_DIALOG_CALL_2_RVA 0x002372AD
+#define HD_HOTA_SPECIALTY_DEFINITION_RVA 0x0029F3A4
+#define HD_HOTA_SECONDARY_SKILL_DEFINITION_RVA 0x0029F3B8
+#define HD_HOTA_SWAP_SPECIALTY_DEFINITION_RVA 0x002965F0
+#define HD_HOTA_SWAP_SKILL_DEFINITION_RVA 0x00296650
+#define HOTA_INSPECTION_GUARD_1_SITE_RVA 0x00002E6D
+#define HOTA_INSPECTION_GUARD_1_CONTINUE_RVA 0x00002E76
+#define HOTA_INSPECTION_GUARD_1_RETURN_RVA 0x00002EFD
+#define HOTA_INSPECTION_GUARD_2_SITE_RVA 0x00003F3D
+#define HOTA_INSPECTION_GUARD_2_CONTINUE_RVA 0x00003F46
+#define HOTA_INSPECTION_GUARD_2_RETURN_RVA 0x00003FCD
+#else
 #define HD_HOTA_HERO_DIALOG_RVA 0x002350E0
 #define HD_HOTA_HERO_DIALOG_CALL_1_RVA 0x0023708A
 #define HD_HOTA_HERO_DIALOG_CALL_2_RVA 0x00237C9D
 #define HD_HOTA_SPECIALTY_DEFINITION_RVA 0x002A043C
-#define HD_HOTA_SPECIALTY_DEFINITION_CAPACITY 12
 #define HD_HOTA_SECONDARY_SKILL_DEFINITION_RVA 0x002A0450
-#define HD_HOTA_SECONDARY_SKILL_DEFINITION_CAPACITY 16
 #define HD_HOTA_SWAP_SPECIALTY_DEFINITION_RVA 0x002975F0
 #define HD_HOTA_SWAP_SKILL_DEFINITION_RVA 0x00297650
-#define HD_HOTA_SWAP_DEFINITION_CAPACITY 12
-#define HOTA_INSPECTED_HERO_POINTER_RVA 0x00250E74
 #define HOTA_INSPECTION_GUARD_1_SITE_RVA 0x00002E5D
 #define HOTA_INSPECTION_GUARD_1_CONTINUE_RVA 0x00002E66
 #define HOTA_INSPECTION_GUARD_1_RETURN_RVA 0x00002EED
 #define HOTA_INSPECTION_GUARD_2_SITE_RVA 0x00003F2D
 #define HOTA_INSPECTION_GUARD_2_CONTINUE_RVA 0x00003F36
 #define HOTA_INSPECTION_GUARD_2_RETURN_RVA 0x00003FBD
+#endif
+#define HD_HOTA_SPECIALTY_DEFINITION_CAPACITY 12
+#define HD_HOTA_SECONDARY_SKILL_DEFINITION_CAPACITY 16
+#define HD_HOTA_SWAP_DEFINITION_CAPACITY 12
+#define HOTA_INSPECTED_HERO_POINTER_RVA 0x00250E74
 #define GENERAL_TEXT_ADDRESS 0x006A5DC4
+#define ADVENTURE_GENERAL_TEXT_ADDRESS 0x00696A68
 #define GENERAL_TEXT_TABLE_OFFSET 0x20
 #define NECROMANCY_MESSAGE_PLURAL_OFFSET 0x2AC
 #define NECROMANCY_MESSAGE_SINGULAR_OFFSET 0x2B0
+#define GENERAL_TEXT_TABLE_COUNT 2
 #define LOAD_DEF_ADDRESS 0x0055C9C0
 #define LOG_CAPACITY 32768
 #define CODE_PATCH_CAPACITY 9
@@ -151,10 +169,15 @@ static uintptr_t hd_swap_skill_definition_address;
 static char saved_hd_swap_skill_definition[
   HD_HOTA_SWAP_DEFINITION_CAPACITY];
 static BOOL hd_swap_skill_definition_applied;
-static uintptr_t plural_message_entry;
-static uintptr_t singular_message_entry;
-static const char *saved_necromancy_message_plural;
-static const char *saved_necromancy_message_singular;
+static const uintptr_t general_text_addresses[GENERAL_TEXT_TABLE_COUNT] = {
+  GENERAL_TEXT_ADDRESS,
+  ADVENTURE_GENERAL_TEXT_ADDRESS,
+};
+static uintptr_t plural_message_entries[GENERAL_TEXT_TABLE_COUNT];
+static uintptr_t singular_message_entries[GENERAL_TEXT_TABLE_COUNT];
+static const char *saved_necromancy_message_plural[GENERAL_TEXT_TABLE_COUNT];
+static const char *saved_necromancy_message_singular[GENERAL_TEXT_TABLE_COUNT];
+static BOOL spiritism_message_table_applied[GENERAL_TEXT_TABLE_COUNT];
 static GetNecromancyCreature chained_get_necromancy_creature;
 static GetNecromancyPower chained_get_necromancy_power;
 static ShowHeroDialog chained_show_hero_dialog;
@@ -162,6 +185,37 @@ static LevelUp chained_level_up;
 static HdShowHeroDialog chained_hd_show_hero_dialog;
 static SwapDialogBuilder chained_swap_dialog_builder;
 
+#ifdef CHINESE_HOTA_R10
+static const char spiritism_name[] =
+  "\273\275\301\351\312\365";
+static const char basic_spiritism_description[] =
+  "{\263\365\274\266\273\275\301\351\312\365}\n\n"
+  "\325\275\266\267\275\341\312\370\272\363\243\254"
+  "\325\363\315\366\265\304\273\356\314\345\311\372"
+  "\316\357\327\334\311\372\303\374\326\265\265\304"
+  "10%\275\253\261\273\327\252\273\257\316\252\273\250"
+  "\321\375\241\243\275\250\326\376\272\315\261\246"
+  "\316\357\273\341\325\325\263\243\314\341\271\251"
+  "\274\323\263\311\241\243";
+static const char advanced_spiritism_description[] =
+  "{\270\337\274\266\273\275\301\351\312\365}\n\n"
+  "\325\275\266\267\275\341\312\370\272\363\243\254"
+  "\325\363\315\366\265\304\273\356\314\345\311\372"
+  "\316\357\327\334\311\372\303\374\326\265\265\304"
+  "20%\275\253\261\273\327\252\273\257\316\252\273\250"
+  "\321\375\241\243\275\250\326\376\272\315\261\246"
+  "\316\357\273\341\325\325\263\243\314\341\271\251"
+  "\274\323\263\311\241\243";
+static const char expert_spiritism_description[] =
+  "{\327\250\274\322\274\266\273\275\301\351\312\365}\n\n"
+  "\325\275\266\267\275\341\312\370\272\363\243\254"
+  "\325\363\315\366\265\304\273\356\314\345\311\372"
+  "\316\357\327\334\311\372\303\374\326\265\265\304"
+  "30%\275\253\261\273\327\252\273\257\316\252\273\250"
+  "\321\375\241\243\275\250\326\376\272\315\261\246"
+  "\316\357\273\341\325\325\263\243\314\341\271\251"
+  "\274\323\263\311\241\243";
+#else
 static const char spiritism_name[] = "Spiritism";
 static const char basic_spiritism_description[] =
   "{Basic Spiritism}\n\n"
@@ -175,6 +229,7 @@ static const char expert_spiritism_description[] =
   "{Expert Spiritism}\n\n"
   "After combat, 30% of the health of slain living creatures is summoned "
   "as Pixies. Buildings and artifacts add their normal bonuses.";
+#endif
 static const SecondarySkillText spiritism_text = {
   spiritism_name,
   {
@@ -211,12 +266,25 @@ static const char native_hd_swap_skill_definition_name[
   HD_HOTA_SWAP_DEFINITION_CAPACITY] = "secsk32.def";
 static const char spiritism_hd_swap_skill_definition_name[
   HD_HOTA_SWAP_DEFINITION_CAPACITY] = "SPIR32.def";
+#ifdef CHINESE_HOTA_R10
+static const char spiritism_message_plural[] =
+  "\312\251\325\271\273\275\301\351\312\365\272\363\243\254"
+  "\304\343\265\304\323\242\320\333\275\253\265\320\276\374"
+  "\313\300\325\337\326\320\265\304%d\270\366\270\264\273\356"
+  "\316\252%s\262\242\274\323\310\353\367\342\317\302\241\243";
+static const char spiritism_message_singular[] =
+  "\312\251\325\271\273\275\301\351\312\365\272\363\243\254"
+  "\304\343\265\304\323\242\320\333\275\253\265\320\276\374"
+  "\313\300\325\337\326\320\265\3041\270\366\270\264\273\356"
+  "\316\252%s\262\242\274\323\310\353\367\342\317\302\241\243";
+#else
 static const char spiritism_message_plural[] =
   "Practicing the art of Spiritism, your hero is able to raise %d of the "
   "enemy's dead to return under their service as %s.";
 static const char spiritism_message_singular[] =
   "Practicing the art of Spiritism, your hero is able to raise one of the "
   "enemy's dead to return under their service as a %s.";
+#endif
 
 static BOOL safe_read(uintptr_t address, void *destination, SIZE_T size) {
   SIZE_T bytes_read = 0;
@@ -847,6 +915,7 @@ static void restore_hd_swap_spiritism_definition(void) {
 }
 
 static BOOL get_general_text_entries(
+  uintptr_t general_text_address,
   uintptr_t *plural_entry,
   uintptr_t *singular_entry) {
   DWORD general_text = 0;
@@ -854,7 +923,10 @@ static BOOL get_general_text_entries(
   if (
     plural_entry == NULL ||
     singular_entry == NULL ||
-    !safe_read(GENERAL_TEXT_ADDRESS, &general_text, sizeof(general_text)) ||
+    !safe_read(
+      general_text_address,
+      &general_text,
+      sizeof(general_text)) ||
     general_text == 0 ||
     !safe_read(
       (uintptr_t)general_text + GENERAL_TEXT_TABLE_OFFSET,
@@ -868,24 +940,74 @@ static BOOL get_general_text_entries(
   return TRUE;
 }
 
-static void restore_spiritism_message(void) {
-  if (!spiritism_message_applied) {
+static void restore_spiritism_message_table(DWORD index) {
+  if (
+    index >= GENERAL_TEXT_TABLE_COUNT ||
+    !spiritism_message_table_applied[index]) {
     return;
   }
   safe_write(
-    plural_message_entry,
-    &saved_necromancy_message_plural,
-    sizeof(saved_necromancy_message_plural));
+    plural_message_entries[index],
+    &saved_necromancy_message_plural[index],
+    sizeof(saved_necromancy_message_plural[index]));
   safe_write(
-    singular_message_entry,
-    &saved_necromancy_message_singular,
-    sizeof(saved_necromancy_message_singular));
+    singular_message_entries[index],
+    &saved_necromancy_message_singular[index],
+    sizeof(saved_necromancy_message_singular[index]));
+  spiritism_message_table_applied[index] = FALSE;
+}
+
+static void restore_spiritism_message(void) {
+  DWORD index;
+  for (index = 0; index < GENERAL_TEXT_TABLE_COUNT; index++) {
+    restore_spiritism_message_table(index);
+  }
   spiritism_message_applied = FALSE;
+}
+
+static BOOL apply_spiritism_message_table(
+  DWORD index,
+  const char *plural,
+  const char *singular) {
+  uintptr_t plural_entry = 0;
+  uintptr_t singular_entry = 0;
+  const char *saved_plural = NULL;
+  const char *saved_singular = NULL;
+
+  if (
+    index >= GENERAL_TEXT_TABLE_COUNT ||
+    !get_general_text_entries(
+      general_text_addresses[index],
+      &plural_entry,
+      &singular_entry) ||
+    !safe_read(
+      plural_entry,
+      &saved_plural,
+      sizeof(saved_plural)) ||
+    !safe_read(
+      singular_entry,
+      &saved_singular,
+      sizeof(saved_singular)) ||
+    !safe_write(plural_entry, &plural, sizeof(plural))) {
+    return FALSE;
+  }
+  if (!safe_write(singular_entry, &singular, sizeof(singular))) {
+    safe_write(plural_entry, &saved_plural, sizeof(saved_plural));
+    return FALSE;
+  }
+
+  plural_message_entries[index] = plural_entry;
+  singular_message_entries[index] = singular_entry;
+  saved_necromancy_message_plural[index] = saved_plural;
+  saved_necromancy_message_singular[index] = saved_singular;
+  spiritism_message_table_applied[index] = TRUE;
+  return TRUE;
 }
 
 static BOOL set_spiritism_message(BOOL active) {
   const char *plural = spiritism_message_plural;
   const char *singular = spiritism_message_singular;
+  DWORD index;
 
   if (!active) {
     restore_spiritism_message();
@@ -894,27 +1016,13 @@ static BOOL set_spiritism_message(BOOL active) {
   if (spiritism_message_applied) {
     return TRUE;
   }
-  if (
-    !get_general_text_entries(
-      &plural_message_entry,
-      &singular_message_entry) ||
-    !safe_read(
-      plural_message_entry,
-      &saved_necromancy_message_plural,
-      sizeof(saved_necromancy_message_plural)) ||
-    !safe_read(
-      singular_message_entry,
-      &saved_necromancy_message_singular,
-      sizeof(saved_necromancy_message_singular)) ||
-    !safe_write(plural_message_entry, &plural, sizeof(plural)) ||
-    !safe_write(singular_message_entry, &singular, sizeof(singular))) {
-    if (plural_message_entry != 0 && saved_necromancy_message_plural != NULL) {
-      safe_write(
-        plural_message_entry,
-        &saved_necromancy_message_plural,
-        sizeof(saved_necromancy_message_plural));
+  for (index = 0; index < GENERAL_TEXT_TABLE_COUNT; index++) {
+    if (!apply_spiritism_message_table(index, plural, singular)) {
+      while (index != 0) {
+        restore_spiritism_message_table(--index);
+      }
+      return FALSE;
     }
-    return FALSE;
   }
   spiritism_message_applied = TRUE;
   return TRUE;
@@ -1590,6 +1698,23 @@ static BOOL install_hooks(void) {
     validate_hd_swap_skill_definition()
       ? "ready\r\n"
       : "unavailable or unexpected filename literal\r\n");
+  append_text("post-battle message tables=");
+  {
+    uintptr_t plural = 0;
+    uintptr_t singular = 0;
+    BOOL primary_ready = get_general_text_entries(
+      GENERAL_TEXT_ADDRESS,
+      &plural,
+      &singular);
+    BOOL adventure_ready = get_general_text_entries(
+      ADVENTURE_GENERAL_TEXT_ADDRESS,
+      &plural,
+      &singular);
+    append_text(
+      primary_ready && adventure_ready
+        ? "primary+adventure ready\r\n"
+        : "one or more unavailable\r\n");
+  }
 
   prepared =
     prepare_necromancy_power_patch(
@@ -1731,7 +1856,7 @@ static DWORD WINAPI patch_thread(LPVOID) {
   BOOL vehr_frame_available;
   BOOL hooks_installed;
 
-  append_text("Conflux Spiritism runtime 8\r\n");
+  append_text("Conflux Spiritism runtime 9\r\n");
   append_text(
     "heroes=128-143 creature=118 rates=10/20/30 underlying-skill=12\r\n");
   write_log();
