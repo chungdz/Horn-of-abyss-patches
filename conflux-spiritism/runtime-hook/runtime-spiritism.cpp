@@ -7,7 +7,13 @@
 #define CONFLUX_HERO_FIRST_ID 128
 #define CONFLUX_HERO_LAST_ID 143
 #define LEGACY_SPECIALTY_FRAME_COUNT 156
+#define CREATURE_ID_WALKING_DEAD 58
+#define CREATURE_ID_WIGHT 60
+#define CREATURE_ID_LICH 64
+#define CREATURE_ID_EARTH_ELEMENTAL 113
+#define CREATURE_ID_FIRE_ELEMENTAL 114
 #define CREATURE_ID_PIXIE 118
+#define CREATURE_ID_PSYCHIC_ELEMENTAL 120
 #define SECONDARY_SKILL_NECROMANCY 12
 #define SECONDARY_SKILL_TEXT_ADDRESS 0x0067DCF0
 #define SECONDARY_SKILL_DEFINITION_ADDRESS 0x006601D0
@@ -220,15 +226,18 @@ static const char spiritism_name[] = "Spiritism";
 static const char basic_spiritism_description[] =
   "{Basic Spiritism}\n\n"
   "After combat, 10% of the health of slain living creatures is summoned "
-  "as Pixies. Buildings and artifacts add their normal bonuses.";
+  "as Pixies. With the Cloak of the Undead King, Fire Elementals are "
+  "summoned instead. Buildings and artifacts add their normal bonuses.";
 static const char advanced_spiritism_description[] =
   "{Advanced Spiritism}\n\n"
   "After combat, 20% of the health of slain living creatures is summoned "
-  "as Pixies. Buildings and artifacts add their normal bonuses.";
+  "as Pixies. With the Cloak of the Undead King, Earth Elementals are "
+  "summoned instead. Buildings and artifacts add their normal bonuses.";
 static const char expert_spiritism_description[] =
   "{Expert Spiritism}\n\n"
   "After combat, 30% of the health of slain living creatures is summoned "
-  "as Pixies. Buildings and artifacts add their normal bonuses.";
+  "as Pixies. With the Cloak of the Undead King, Psychic Elementals are "
+  "summoned instead. Buildings and artifacts add their normal bonuses.";
 #endif
 static const SecondarySkillText spiritism_text = {
   spiritism_name,
@@ -1029,12 +1038,32 @@ static BOOL set_spiritism_message(BOOL active) {
 }
 
 static int __thiscall direct_get_necromancy_creature(void *hero) {
+#ifdef CHINESE_HOTA_R10
   if (is_spiritist_hero(hero)) {
     set_spiritism_message(TRUE);
     return CREATURE_ID_PIXIE;
   }
   set_spiritism_message(FALSE);
   return chained_get_necromancy_creature(hero);
+#else
+  int native_creature = chained_get_necromancy_creature(hero);
+
+  if (is_spiritist_hero(hero)) {
+    set_spiritism_message(TRUE);
+    switch (native_creature) {
+      case CREATURE_ID_WALKING_DEAD:
+        return CREATURE_ID_FIRE_ELEMENTAL;
+      case CREATURE_ID_WIGHT:
+        return CREATURE_ID_EARTH_ELEMENTAL;
+      case CREATURE_ID_LICH:
+        return CREATURE_ID_PSYCHIC_ELEMENTAL;
+      default:
+        return CREATURE_ID_PIXIE;
+    }
+  }
+  set_spiritism_message(FALSE);
+  return native_creature;
+#endif
 }
 
 static float __thiscall direct_get_necromancy_power(
@@ -1858,7 +1887,8 @@ static DWORD WINAPI patch_thread(LPVOID) {
 
   append_text("Conflux Spiritism runtime 9\r\n");
   append_text(
-    "heroes=128-143 creature=118 rates=10/20/30 underlying-skill=12\r\n");
+    "heroes=128-143 creature=118 cloak=114/113/120 "
+    "rates=10/20/30 underlying-skill=12\r\n");
   write_log();
 
   hooks_installed = install_hooks();

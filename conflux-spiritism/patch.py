@@ -15,7 +15,7 @@ HERO_RECORD_STRIDE = 0x5C
 FIRST_SKILL_TYPE_OFFSET = 0x27CBDC
 NECROMANCY = 12
 EMPTY_SKILL = 0xFFFFFFFF
-RUNTIME_LOG_MARKER = "Conflux Spiritism runtime 8"
+RUNTIME_LOG_MARKER = "Conflux Spiritism runtime 9"
 
 HEROES = (
     (128, "Pasis", 22, 1, 20, 1),
@@ -91,6 +91,9 @@ CONFLUX_024_RUNTIME_HASH = (
 )
 CONFLUX_025_RUNTIME_HASH = (
     "acee00f853c68da4d260ae7bb51b9dcf14f3ed4f6cd6a201a16441f792161dab"
+)
+CONFLUX_026_RUNTIME_HASH = (
+    "8841bc03b8a2e9cc39aacce50d963c55c37b2c635e701521ce6d07b85c6e396c"
 )
 SMALL_RESOURCE_HASH = (
     "ba4ba357d2859b8e5dc8077bce00b1effc0a40b42fb25fa9f53ed76dd0d85eb3"
@@ -475,6 +478,8 @@ def collect_status(game_dir):
         if runtime_hash == CONFLUX_024_RUNTIME_HASH
         else "conflux-spiritism-0.2.5"
         if runtime_hash == CONFLUX_025_RUNTIME_HASH
+        else "conflux-spiritism-0.2.6"
+        if runtime_hash == CONFLUX_026_RUNTIME_HASH
         else "nyx-spiritism"
         if runtime_hash == NYX_RUNTIME_HASH
         else "missing"
@@ -601,6 +606,7 @@ def validate_prerequisite(game_dir, status):
             "conflux-spiritism-0.2.3",
             "conflux-spiritism-0.2.4",
             "conflux-spiritism-0.2.5",
+            "conflux-spiritism-0.2.6",
         ):
             raise RuntimeError(
                 "The installed Conflux runtime is not a reviewed upgrade source."

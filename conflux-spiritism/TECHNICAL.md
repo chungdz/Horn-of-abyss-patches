@@ -4,21 +4,24 @@
 
 - Game: Horn of the Abyss 1.8.0
 - HD Mod: 5.6 R16
-- Patch version: 0.2.6
+- Patch version: 0.2.7
 - Prerequisite: Nyx Spiritism 0.1.5 or Conflux Spiritism
-  0.1.0/0.2.0/0.2.1/0.2.2/0.2.3/0.2.4/0.2.5
+  0.1.0/0.2.0/0.2.1/0.2.2/0.2.3/0.2.4/0.2.5/0.2.6
 - Conflux hero IDs: `128` through `143`
 - Internal secondary skill: Necromancy, ID `12`
-- Raised creature: Pixie, creature ID `118`
+- Raised creature without Cloak: Pixie, creature ID `118`
+- Raised creatures with Cloak: Fire Elemental `114`, Earth Elemental `113`,
+  Psychic Elemental `120` at Basic, Advanced, and Expert
 - Spiritism base rates: 10%/20%/30%
 
 ## Live Installed State
 
-The live installation uses runtime 8 with SHA-256
-`8841bc03b8a2e9cc39aacce50d963c55c37b2c635e701521ce6d07b85c6e396c`.
+The live installation uses runtime 9 with SHA-256
+`938d53c27c298a4d856bef7d793724858a3fdcf262aff1a00cb1fd3488473a7a`.
 `patch.py status` reports both executables complete, all sixteen hero records
-as Spiritism, all three custom skill resources registered, truncated specialty
-overrides removed, and the last launch as `hooks-installed`.
+as Spiritism, all three custom skill resources registered, and truncated
+specialty overrides removed. The runtime 9 launch log reports every gameplay,
+UI, exchange-dialog, and inspection-guard hook installed.
 
 Active image resources:
 
@@ -28,7 +31,7 @@ Active image resources:
 - `IX32.def`: 32x32 Nyx specialty frames, scoped to supported exchanges
 - `IX44.def`: 44x44 Nyx specialty frames, scoped to hero dialogs
 
-The `IX` resources are loaded as independent DEFs. Runtime 8 does not replace
+The `IX` resources are loaded as independent DEFs. Runtime 9 does not replace
 a frame pointer or pixel buffer in HotA's shared specialty atlases.
 
 ## Executable Records
@@ -84,7 +87,7 @@ behavior and adds a Conflux-only power hook.
 
 | Address | Function | Change |
 | --- | --- | --- |
-| `0x004E3ED0` | `H3Hero::GetNecromancyCreatureId` | Return Pixie `118` for a Conflux Spiritism hero |
+| `0x004E3ED0` | `H3Hero::GetNecromancyCreatureId` | Return Pixie `118`, or map the native Cloak result to Fire `114`, Earth `113`, or Psychic `120` |
 | `0x004E3F40` | `H3Hero::GetNecromancyPower` | Add 5% per Spiritism level after HotA's native calculation |
 | `0x004E1A70` | Standard hero dialog | Scope the Spiritism text and resource aliases |
 | `0x004DA990` | Hero level-up processing | Scope the Spiritism text and resource aliases |
@@ -116,6 +119,20 @@ placed a relative jump there, the runtime chains that live target instead.
 All code patches are validated before writing and rolled back together on
 failure.
 
+The English creature wrapper first calls the complete live HotA selector.
+HotA 1.8.0 returns Skeleton `56` without the Cloak, Walking Dead `58` at Basic,
+Wight `60` at Advanced, and Lich `64` at Expert. The wrapper maps the three
+Cloak results to Fire Elemental `114`, Earth Elemental `113`, and Psychic
+Elemental `120`; every other result becomes Pixie `118`. The
+`CHINESE_HOTA_R10` build retains its previously tested Pixie-only branch.
+
+The wrapper does not bypass HotA's later post-battle eligibility rules. In
+particular, the Ring of Oblivion, artifact ID `158`, makes battle losses
+irrevocable and suppresses both ordinary Necromancy and Spiritism regardless
+of the selected raised creature. The Ring must be unequipped, not merely
+followed by an application restart, because equipped artifacts are serialized
+in the saved game.
+
 The gameplay and UI eligibility check accepts hero IDs `128–143` and requires
 the hero's internal Necromancy level to be nonzero. This affects:
 
@@ -129,14 +146,14 @@ the hero's internal Necromancy level to be nonzero. This affects:
 - 32x32, 44x44, and 82x93 custom icons
 - Spiritism post-battle result wording
 
-Runtime 8 does not modify a specialty atlas, frame-table pointer, frame
+Runtime 9 does not modify a specialty atlas, frame-table pointer, frame
 object, or pixel buffer. For Nyx's standard hero dialog it temporarily
 changes the `un44.def` resource literal at `0x00679D90` to `IX44.def`. For
 the HD pregame panel it scopes the equivalent literal at
 `HD_HOTA.dll+0x2A043C`.
 
 HD Mod replaces the original SwapMgr builder at `0x005AAD90` with a
-thiscall-compatible relative jump. Runtime 8 chains that live target and
+thiscall-compatible relative jump. Runtime 9 chains that live target and
 uses the builder's existing `H3Hero*[2]` argument to decide whether to scope:
 
 - `HD_HOTA.dll+0x297650`: `secsk32.def` to `SPIR32.def`
@@ -275,8 +292,8 @@ _HD3_Data/Common/ConfluxSpiritism.log
 Its success log begins with:
 
 ```text
-Conflux Spiritism runtime 8
-heroes=128-143 creature=118 rates=10/20/30 underlying-skill=12
+Conflux Spiritism runtime 9
+heroes=128-143 creature=118 cloak=114/113/120 rates=10/20/30 underlying-skill=12
 ```
 
 and must report the creature, rate, hero-dialog, level-up, HD hero-selection,
@@ -310,7 +327,7 @@ frames 39, 40, and 41 replaced by the Basic, Advanced, and Expert Spiritism
 art.
 
 The installer verifies the exact `IX32.def` and `IX44.def` copies in `Data`
-and both compatibility packs, plus both registration lines. Runtime 8
+and both compatibility packs, plus both registration lines. Runtime 9
 references them only through scoped resource-name aliases.
 
 ## Runtime Build
@@ -331,7 +348,7 @@ The deterministic Zig 0.15.2 x86 Windows build imports only `KERNEL32.dll`.
 
 ```text
 assets/ConfluxSpiritismRuntime.dll
-SHA-256 8841bc03b8a2e9cc39aacce50d963c55c37b2c635e701521ce6d07b85c6e396c
+SHA-256 938d53c27c298a4d856bef7d793724858a3fdcf262aff1a00cb1fd3488473a7a
 ```
 
 Two consecutive default builds reproduce this checksum byte for byte.
@@ -464,6 +481,40 @@ It also reported `specialty atlas mutation=disabled`, confirmed Vehr's
 extended specialty frame remained available, and emitted no scenario-selector
 hook entry. The packaged and live runtime hashes both matched
 `8841bc03b8a2e9cc39aacce50d963c55c37b2c635e701521ce6d07b85c6e396c`.
+
+The 0.2.7 installer was exercised against an isolated copy of the live runtime
+8 installation:
+
+- `status` identified runtime 8 as the reviewed 0.2.6 upgrade source.
+- `apply` installed runtime 9 without changing either executable or any image
+  resource.
+- `status` reported all sixteen Spiritism records and all resources complete.
+- `restore` reproduced every copied pre-upgrade file byte for byte.
+
+The guarded installer then upgraded the live game and created backup
+`ConfluxSpiritismPatch/backups/20260816-111049`. The packaged and installed
+runtime 9 DLLs both match
+`938d53c27c298a4d856bef7d793724858a3fdcf262aff1a00cb1fd3488473a7a`.
+
+Runtime 9 then passed live gameplay validation. Spiritism raised Pixies
+without the Cloak and used Fire, Earth, and Psychic Elementals for the three
+Cloak skill levels. A later report that Psychic Elementals, Pixies, and
+ordinary Skeletons had all stopped was traced to native HotA behavior:
+
+- In save `211`, Nyx did not have artifact `158` equipped and the Psychic
+  Elemental stack was still growing.
+- In save `221`, artifact `158` first appeared in Nyx's second ring slot.
+- The Ring remained equipped in saves `225` and `226`; the Psychic Elemental
+  stack only decreased from combat losses and received no post-battle gains.
+- Live process inspection still showed the correct Conflux hero ID, Expert
+  internal Necromancy, free army slots, and the requested raised-creature
+  selector result.
+- Ordinary Necromancy also stopped, isolating the behavior from the Spiritism
+  wrapper.
+
+HotA's own artifact data identifies `art158` as the Ring of Oblivion and states
+that all battle losses become irrevocable. Moving the Ring to the backpack
+restores native Necromancy and Spiritism generation.
 
 ## Files Changed By Apply
 

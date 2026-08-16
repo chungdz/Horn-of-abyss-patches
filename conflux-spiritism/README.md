@@ -1,16 +1,18 @@
 # Conflux Spiritism
 
-Version 0.2.6
+Version 0.2.7
 
 This HotA 1.8.0 upgrade gives every Conflux hero Spiritism in the first
 secondary-skill slot. It builds on the tested
 [Nyx Spiritism](../nyx-spiritism/README.md) 0.1.5 patch and reuses its custom
 icons and loose resources.
 
-Spiritism remains Necromancy internally. Conflux heroes raise Pixies at
-10%/20%/30% base rates while retaining HotA's native Amplifiers, artifacts,
-AI handling, rounding, save format, and post-battle army logic. Heroes
-outside the Conflux retain normal 5%/10%/15% Necromancy and Skeleton raising.
+Spiritism remains Necromancy internally. Conflux heroes normally raise Pixies
+at 10%/20%/30% base rates while retaining HotA's native Amplifiers, artifacts,
+AI handling, rounding, save format, and post-battle army logic. With the Cloak
+of the Undead King they instead raise Fire Elementals at Basic, Earth
+Elementals at Advanced, and Psychic Elementals at Expert. Heroes outside the
+Conflux retain normal 5%/10%/15% Necromancy and Skeleton raising.
 
 Version 0.2.1 removes obsolete 156-frame specialty-atlas overrides that caused
 HotA-added heroes to display unrelated specialty pictures.
@@ -37,19 +39,28 @@ scoped image handling from version 0.2.4. The fixed-scenario Bloodlust image
 is documented as a cosmetic limitation rather than risking the extended hero
 atlas or HotA's converted renderer objects.
 
+Version 0.2.7 chains HotA's native Cloak creature selector for English
+Spiritism heroes. Its Walking Dead, Wight, and Lich results are translated to
+Fire Elemental, Earth Elemental, and Psychic Elemental respectively. Without
+the Cloak, Spiritism continues to raise Pixies.
+
 ## Installed State
 
-Installed and active:
+Installed and validated in game:
 
-- Runtime 8, SHA-256
-  `8841bc03b8a2e9cc39aacce50d963c55c37b2c635e701521ce6d07b85c6e396c`
+- Runtime 9, SHA-256
+  `938d53c27c298a4d856bef7d793724858a3fdcf262aff1a00cb1fd3488473a7a`
 - Spiritism for all sixteen Conflux heroes
-- Conflux-only 10%/20%/30% rates and Pixie raising
+- Conflux-only 10%/20%/30% rates, Pixie raising, and custom Cloak creatures
 - `SPIRIT.def`, `SPIR32.def`, and `SPIR82.def` skill icons
 - Spiritism names, descriptions, level-up UI, pregame UI, and battle wording
 - Nyx's Pixie specialty portrait in standard, pregame, and supported exchange
   dialogs
 - Null guards for both HotA hero-inspection handlers
+
+The guarded installer, static machine-code checks, and launch-time hook
+installation pass. In-game testing confirmed Pixie raising without the Cloak
+and the requested Fire, Earth, and Psychic Elemental results with the Cloak.
 
 Removed or disabled:
 
@@ -57,7 +68,7 @@ Removed or disabled:
 - Runtime specialty frame-pointer replacement
 - Runtime specialty pixel-buffer replacement
 
-`IX32.def` and `IX44.def` remain separate resources. Runtime 8 references
+`IX32.def` and `IX44.def` remain separate resources. Runtime 9 references
 them only while constructing a Nyx-specific dialog; it never copies their
 frames or pixels into HotA's loaded `UN32.def` or `UN44.def` objects.
 
@@ -130,7 +141,7 @@ Advanced Spiritism; all other Conflux heroes receive Basic Spiritism.
 
 For a fresh installation, apply and test Nyx Spiritism 0.1.5 first. The
 installer also supports in-place upgrades from reviewed Conflux Spiritism
-0.1.0 through 0.2.5 installations. It requires the exact:
+0.1.0 through 0.2.6 installations. It requires the exact:
 
 - Executable checksums
 - Runtime DLL checksum
@@ -198,6 +209,12 @@ python3 patch.py restore --game-dir "../.." \
 12. Confirm Akka and HotA-added heroes retain their native specialty images.
     Confirm Nyx uses the custom Pixie specialty portrait in her hero and
     supported exchange dialogs.
+13. Equip the Cloak of the Undead King and confirm Basic, Advanced, and Expert
+    Spiritism raise Fire, Earth, and Psychic Elementals respectively. Remove
+    the Cloak and confirm the same heroes return to raising Pixies.
+14. Equip the Ring of Oblivion and confirm Spiritism raises nothing, matching
+    HotA's native suppression of ordinary Necromancy and all other restoration.
+    Move the Ring to the backpack and confirm raising resumes.
 
 For a deterministic rate test, create a battle against exactly 120 Peasants
 with no artifacts or Amplifiers. Because each Peasant has 1 health and each
@@ -211,6 +228,14 @@ Pixie has 3 health, the expected results are:
 
 Adding Vampire's Cowl raises the Basic result to 8 Pixies.
 
+With the Cloak of the Undead King, the summoned creature is:
+
+| Spiritism level | Cloak creature |
+| --- | --- |
+| Basic | Fire Elemental |
+| Advanced | Earth Elemental |
+| Expert | Psychic Elemental |
+
 Use a new map or newly recruited heroes when checking starting skills.
 Existing heroes in saved games retain the skills serialized in those saves.
 
@@ -218,6 +243,9 @@ Existing heroes in saved games retain the skills serialized in those saves.
 
 - Spiritism is stored as Necromancy in maps and saves.
 - Conflux heroes cannot possess separate Necromancy and Spiritism skills.
+- The Ring of Oblivion suppresses Spiritism exactly as it suppresses ordinary
+  Necromancy. Because equipment is serialized, closing and reopening the game
+  does not remove this effect; move the Ring to the backpack or unequip it.
 - Less common skill notifications outside the scoped hero, level-up, and
   pregame paths can still use the word `Necromancy`.
 - The exchange dialog keeps native icons when one side is a non-Conflux

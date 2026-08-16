@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.2.7 - 2026-08-16
+
+- Chained HotA's native raised-creature selector for English Spiritism heroes.
+- Translated the Cloak of the Undead King's Basic Walking Dead result to Fire
+  Elementals, Advanced Wight result to Earth Elementals, and Expert Lich result
+  to Psychic Elementals.
+- Kept no-Cloak Spiritism raising Pixies and left ordinary Necromancy
+  unchanged.
+- Kept the unresolved Chinese runtime on its existing Pixie-only behavior.
+- Added guarded in-place upgrade support for the reviewed 0.2.6 runtime.
+- Validated Pixie raising and all three custom Cloak results in game.
+- Documented that HotA's Ring of Oblivion, artifact ID `158`, suppresses both
+  Spiritism and ordinary Necromancy while equipped.
+- Traced the apparent late-game generation failure across saves and confirmed
+  it was serialized Ring equipment rather than a runtime hook failure.
+
 ## 0.2.6 - 2026-08-16
 
 - Removed runtime 7's ineffective fixed-scenario selector hook.

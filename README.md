@@ -9,7 +9,7 @@ Horn of the Abyss.
   1.2.1, for HotA 1.8.0
 - [Nyx Spiritism](nyx-spiritism/README.md), version 0.1.5, for the installed
   HotA 1.8.0 Nyx patch
-- [Conflux Spiritism](conflux-spiritism/README.md), version 0.2.0, extending
+- [Conflux Spiritism](conflux-spiritism/README.md), version 0.2.7, extending
   the tested Nyx Spiritism patch to all Conflux heroes
 - [Chinese HotA 1.8.0 Conflux Spiritism Port](chinese-180-conflux-spiritism/README.md),
   version 0.1.2, unresolved after failed in-game validation; its attempted
