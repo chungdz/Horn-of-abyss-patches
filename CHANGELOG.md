@@ -1,5 +1,55 @@
 # Changelog
 
+## Pixie Transformer 0.1.4 - 2026-08-20
+
+- Used runtime 4's per-click failures to isolate the remaining problem to the
+  HotA expanded transformer mapping.
+- Corrected its pointer from unrelated global `HotA.dll+0x6354CC` to the
+  initializer's verified final store at `HotA.dll+0x6354E4`.
+- Added runtime 5 and a guarded upgrade from version 0.1.3.
+
+## Pixie Transformer 0.1.3 - 2026-08-20
+
+- Used the runtime 3 log and executable jump tables to confirm that Garden
+  IDs `18/19` dispatch through `0x005D38E1`, not the Magic Lantern dwelling
+  branch.
+- Moved the direct transformer hook to the real Garden handler.
+- Left actual Magic Lantern and other dwelling recruitment unchanged.
+- Added runtime 4 and a guarded upgrade from version 0.1.2.
+
+## Pixie Transformer 0.1.2 - 2026-08-20
+
+- Corrected runtime 2's invalid town-manager type check by reading the actual
+  `H3Town` type byte from `[manager+0x38]+0x04`.
+- Changed a built Garden to consume the overlapping Magic Lantern left-click,
+  disabling creature recruitment and routing directly to the transformer.
+- Preserved recruitment only in towns without the Garden.
+- Added runtime 3 diagnostics and guarded upgrades from versions 0.1.0 and
+  0.1.1.
+
+## Pixie Transformer 0.1.1 - 2026-08-20
+
+- Recorded that version 0.1.0 failed in game because the Garden artwork uses
+  the Magic Lantern dwelling control and the HotA transformer table was not
+  available during loader initialization.
+- Moved the hook to the Magic Lantern dwelling handler and redirected it only
+  when the current Conflux town has Garden building bit `18` or `19`.
+- Preserved native Magic Lantern recruitment when the Garden is absent or a
+  transformer prerequisite is unavailable.
+- Deferred HotA transformer-table resolution until the eligible Garden click.
+- Added guarded 0.1.0 upgrade and restore support.
+
+## Pixie Transformer 0.1.0 - 2026-08-20
+
+- Added a separate patch that replaces Conflux Garden of Life clicks with the
+  native transformer interface.
+- Converts selected stacks 1:1 into Pixies while preserving the Necropolis
+  Skeleton Transformer.
+- Removes the Garden's old `+10` weekly growth bonus.
+- Preserves Conflux Spiritism 0.2.9 through a companion-runtime loader.
+- Added guarded install, generated building text, status, backup, restore,
+  source, and technical records.
+
 ## 1.2.1 - 2026-08-14
 
 - Documented the verified partial support in HotA 1.8.0 with HD Mod 5.6 R16.

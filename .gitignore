@@ -3,6 +3,7 @@
 !inteus-pixie-elementalist/assets/NyxRuntimeFix.dll
 !nyx-spiritism/assets/NyxSpiritismRuntime.dll
 !conflux-spiritism/assets/ConfluxSpiritismRuntime.dll
+!pixie-transformer/assets/PixieTransformerRuntime.dll
 *.exe
 *.lod
 *.snd
