@@ -11,7 +11,7 @@ Horn of the Abyss.
   HotA 1.8.0 Nyx patch
 - [Conflux Spiritism](conflux-spiritism/README.md), version 0.2.9, extending
   the reviewed Nyx Spiritism patch to all Conflux heroes
-- [Pixie Transformer](pixie-transformer/README.md), version 0.1.4, replacing
+- [Pixie Transformer](pixie-transformer/README.md), version 0.1.5, replacing
   the Conflux Garden of Life with a 1:1 Pixie conversion building while
   preserving Conflux Spiritism 0.2.9
 - [Chinese HotA 1.8.0 Conflux Spiritism Port](chinese-180-conflux-spiritism/README.md),

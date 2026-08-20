@@ -1,6 +1,6 @@
 # Pixie Transformer
 
-Version 0.1.4
+Version 0.1.5
 
 This HotA 1.8.0 overlay replaces the Conflux Garden of Life with a Pixie
 Transformer:
@@ -16,10 +16,18 @@ Transformer:
 - The Necropolis Skeleton Transformer remains unchanged.
 - Conflux Spiritism 0.2.9 remains active.
 
-The patch changes the two Garden names and descriptions to
-`Pixie Transformer`. It generates the loose `Data/BldgSpec.txt` override from
-the installed English language archive during installation; the repository
-does not contain the extracted game text.
+The town building keeps its original `Garden of Life` name. The patch changes
+only the two Garden descriptions to:
+
+```text
+The Garden of Life allows you to convert any creature into a Pixie.
+```
+
+HotA reads this town text from the `BldgSpec.txt` entry inside
+`Data/HotA_lng.lod`, so the installer updates that reviewed archive entry in
+place and also generates a matching loose `Data/BldgSpec.txt`. The repository
+does not contain the extracted game text. The modal conversion window remains
+titled `Pixie Transformer`.
 
 ## Prerequisite
 
@@ -87,33 +95,35 @@ python3 patch.py restore --game-dir "../.." \
    and all hooks installed.
 4. Confirm a real Magic Lantern still opens its normal Pixie/Sprite
    recruitment window.
-5. Build either Garden of Life variant and confirm it is named Pixie
-   Transformer.
-6. Left-click the Garden and confirm the native transformer window opens with
+5. Build either Garden variant and confirm its name remains Garden of Life.
+6. Confirm its description explains conversion into a Pixie and no longer
+   claims to add `+10` weekly growth.
+7. Left-click the Garden and confirm the native transformer window opens with
    Pixie wording instead of creature recruitment.
-7. Move several creature stacks into the window and confirm each returns as
+8. Move several creature stacks into the window and confirm each returns as
    the same number of Pixies.
-8. Repeat with a HotA-added creature from Cove, Factory, or Vori.
-9. Confirm existing Pixies cannot be transformed again.
-10. Advance to a new week and confirm the former `+10` Garden growth bonus is
-   absent.
-11. Open a Necropolis Skeleton Transformer and confirm it still produces
+9. Repeat with a HotA-added creature from Cove, Factory, or Vori.
+10. Confirm existing Pixies cannot be transformed again.
+11. Advance to a new week and confirm the former `+10` Garden growth bonus is
+    absent.
+12. Open a Necropolis Skeleton Transformer and confirm it still produces
     Skeletons or Bone Dragons normally.
-12. Win battles with Nyx and another Conflux Spiritist and confirm the
+13. Win battles with Nyx and another Conflux Spiritist and confirm the
     Spiritism 0.2.9 Sprite/Pixie split is unchanged.
 
-The static installer, source build, and checksum checks pass. In-game
-validation of version 0.1.4 is pending.
+The transformer dialog and conversion path were validated in game with
+runtime 5. The version 0.1.5 description display remains pending a fresh game
+launch.
 
 ## Installed State
 
-Version 0.1.4 is installed in the live game directory. Static status reports
+Version 0.1.5 is installed in the live game directory. Static status reports
 the overlay runtime, Spiritism companion, reviewed executables, `HotA.dll`,
-and generated building text complete. The pre-upgrade version 0.1.3 state is
-saved under:
+description-only loose text, and patched language archive complete. The
+pre-upgrade version 0.1.4 state is saved under:
 
 ```text
-PixieTransformerPatch/backups/20260819-213715
+PixieTransformerPatch/backups/20260819-222310
 ```
 
 Version 0.1.0 failed its first in-game test: clicking the visible Garden
@@ -126,8 +136,9 @@ but its in-game log proved the Garden click never reached the separate Magic
 Lantern dwelling branch. Version 0.1.3 hooks the executable's actual Garden
 dispatch at `0x005D38E1`, but its click log exposed an incorrect HotA
 target-table global. Version 0.1.4 reads the pointer from the initializer's
-verified storage location at `HotA.dll+0x6354E4`. Its runtime log remains
-`not-run` until the game is launched.
+verified storage location at `HotA.dll+0x6354E4`; its runtime log confirms the
+Garden dialog opens. Version 0.1.5 retains that runtime and moves the
+description-only override into the language archive HotA actually loads.
 
 ## Files
 

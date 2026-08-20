@@ -1,5 +1,15 @@
 # Changelog
 
+## Pixie Transformer 0.1.5 - 2026-08-20
+
+- Kept the town building name `Garden of Life`.
+- Changed only the two Garden descriptions to explain Pixie conversion.
+- Moved the description override into the active `BldgSpec.txt` entry inside
+  `Data/HotA_lng.lod` after confirming HotA ignored the loose file for this
+  town text.
+- Preserved runtime 5 and all validated 0.1.4 gameplay behavior.
+- Added guarded 0.1.4 upgrade and byte-exact language-archive restoration.
+
 ## Pixie Transformer 0.1.4 - 2026-08-20
 
 - Used runtime 4's per-click failures to isolate the remaining problem to the

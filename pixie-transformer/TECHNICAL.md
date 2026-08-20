@@ -4,7 +4,7 @@
 
 - Game: Horn of the Abyss 1.8.0
 - HD Mod: 5.6 R16
-- Patch version: 0.1.4
+- Patch version: 0.1.5
 - Runtime marker: `Pixie Transformer runtime 5`
 - Prerequisite: Conflux Spiritism 0.2.9, runtime 11
 - Town: Conflux, ID `8`
@@ -19,7 +19,8 @@ Reviewed prerequisite hashes:
 | `h3hota.exe` | `7aeb166c1976d87dd7b7ba43de033ec986bb4ee7d463816213f5d0a9afff7580` |
 | `h3hota HD.exe` | `110122278fb9a2ac66d39b5243d00561c6725fbda54bf23cf41c034baab6c080` |
 | `HotA.dll` | `e97aa25df70bc32c0cd5af20acec22207e86b13eb27fa5b705a102d5ef53fcec` |
-| `Data/HotA_lng.lod` | `748b54cfac02ffc795f4b0c48c7cf6ef41ea0a6020f3cf41766271bd12eb81e9` |
+| Original `Data/HotA_lng.lod` | `748b54cfac02ffc795f4b0c48c7cf6ef41ea0a6020f3cf41766271bd12eb81e9` |
+| Description-only `Data/HotA_lng.lod` | `750a3384ad1bef990ec723154731ca24482e44f7f1f3390330c34c8fc89f162d` |
 | Spiritism `setseed.dll` | `67c071790536f4186df0b348f59a7ce06b176168442d56454be7e96dde8507fd` |
 | Pixie Transformer 0.1.0 runtime | `8956f877bf50ea63338230e956438bc8a8f8c15ea2ee5ad64a91690ea6b22b6f` |
 | Pixie Transformer 0.1.1 runtime | `ab7ba9cf873fd60a33c1ac8243591b1407d00b027d8885d808ef10e75e4ed336` |
@@ -29,21 +30,22 @@ Reviewed prerequisite hashes:
 
 ## Live Installed State
 
-Version 0.1.4 is installed in the live game directory. Static status verifies:
+Version 0.1.5 is installed in the live game directory. Static status verifies:
 
 - Pixie Transformer `setseed.dll`:
   `26d84b9c76d59bd5988d390ce020a0c53b0778fb7db8831fbcb25244907a5a45`
 - Spiritism companion:
   `67c071790536f4186df0b348f59a7ce06b176168442d56454be7e96dde8507fd`
-- Generated `Data/BldgSpec.txt`:
-  `b3656c794d73b5003d635df7567b8eee09e975ba3316ec7d49bdb3c0df9cfb67`
+- Description-only `Data/BldgSpec.txt`:
+  `5c077d1592862dc5172eeab2ad9177aa4eefe13abbf1f052e4106bc0ba58b402`
+- Description-only `Data/HotA_lng.lod`:
+  `750a3384ad1bef990ec723154731ca24482e44f7f1f3390330c34c8fc89f162d`
 - Reviewed executables and `HotA.dll`
 - Complete static patch state
 
-Backup `PixieTransformerPatch/backups/20260819-213715` contains the exact
-prior version 0.1.3 runtime, its five failed target-table click diagnostics,
-the Spiritism companion, and generated building text. The version 0.1.4
-runtime log remains `not-run` until the first game launch.
+Backup `PixieTransformerPatch/backups/20260819-222310` contains the exact
+prior version 0.1.4 runtime, successful runtime log, Spiritism companion,
+renamed loose building text, and original language archive.
 
 ## Runtime Composition
 
@@ -179,17 +181,25 @@ Base creature growth is not changed. Only the Garden horde bonus is removed.
 
 ## Building Text
 
-The installer validates the exact English `Data/HotA_lng.lod`, extracts
-`BldgSpec.txt` in memory, and requires exactly one copy of each original
-Garden row. Both rows become:
+Version 0.1.4 generated a loose `Data/BldgSpec.txt`, but the in-game town
+screen continued to use the archived Garden name and `+10` description.
+Version 0.1.5 therefore validates the exact English `Data/HotA_lng.lod`,
+extracts `BldgSpec.txt` in memory, and requires exactly one copy of each
+original Garden row. Both rows become:
 
 ```text
-Pixie Transformer
-The Pixie Transformer allows you to convert any creature into a Pixie.
+Garden of Life
+The Garden of Life allows you to convert any creature into a Pixie.
 ```
 
-The generated result is installed as loose `Data/BldgSpec.txt`. The archive
-itself is never modified.
+Only the description changes; the town building name remains Garden of Life.
+The modal conversion window is still titled Pixie Transformer.
+
+The revised text compresses to 2142 bytes, fitting inside the original
+2155-byte archive slot. The installer overwrites that slot, zero-fills its
+unused 13 bytes, and changes only the entry's uncompressed and compressed
+size fields. Every LOD entry offset remains unchanged. It verifies the
+revised entry after decompression and also installs matching loose text.
 
 ## Backup And Restore
 
@@ -200,12 +210,16 @@ Each apply records these paths under
 - `_HD3_Data/Common/ConfluxSpiritismRuntime.dll`
 - `_HD3_Data/Common/PixieTransformer.log`
 - `Data/BldgSpec.txt`
+- `Data/HotA_lng.lod`
 
 The manifest stores whether each path originally existed and the SHA-256 of
 every saved file. Restore verifies each backup hash and reinstates the exact
-state saved by the selected backup. Restoring backup `20260819-212836` returns
-to version 0.1.1, backup `20260819-212254` returns to version 0.1.0, and the
-original `20260819-211141` backup returns to the pre-overlay Spiritism state.
+state saved by the selected backup. Older manifests predate language-archive
+tracking; when one is selected from a 0.1.5 installation, restore retrieves
+the verified original archive from the 0.1.5 checkpoint. Restoring backup
+`20260819-212836` returns to version 0.1.1, backup `20260819-212254` returns to
+version 0.1.0, and the original `20260819-211141` backup returns to the
+pre-overlay Spiritism state.
 
 ## Version 0.1.0 Failure
 
@@ -295,12 +309,15 @@ Completed:
 - Exact 0.1.3-to-0.1.4 isolated upgrade and byte-exact restore
 - Runtime 5 `KERNEL32.dll`-only import audit
 - Live guarded upgrade to version 0.1.4
+- Runtime 5 Garden dialog and conversion launch in game
+- Exact 0.1.4-to-0.1.5 isolated upgrade and byte-exact restore
+- Revised LOD entry decompression and exact checksum verification
+- Live guarded upgrade to version 0.1.5
 
 Pending:
 
-- First version 0.1.4 live launch and runtime log
+- Version 0.1.5 Garden description display after a fresh launch
 - Unchanged Magic Lantern recruitment
-- Garden click and Pixie conversion
 - Weekly growth confirmation
 - HotA-added creature conversion
 - Unchanged Necropolis transformer and Spiritism gameplay checks

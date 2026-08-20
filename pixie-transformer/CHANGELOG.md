@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.1.5 - 2026-08-20
+
+- Recorded that runtime 5 opens the Garden transformer dialog successfully.
+- Kept both town building names as `Garden of Life`.
+- Changed only their descriptions to explain conversion into a Pixie.
+- Confirmed that HotA ignores the loose `Data/BldgSpec.txt` for this town
+  display and loads the entry from `Data/HotA_lng.lod`.
+- Recompressed the revised entry into its existing archive slot, updated only
+  its uncompressed and compressed sizes, and preserved all archive offsets.
+- Added the language archive to guarded status, backup, and restore handling.
+- Verified the exact 0.1.4-to-0.1.5 upgrade and byte-exact restore in an
+  isolated fixture.
+- Installed version 0.1.5; its revised description remains pending in-game
+  display validation.
+
 ## 0.1.4 - 2026-08-20
 
 - Recorded five runtime 4 Garden clicks, each consumed at the correct handler
@@ -16,8 +31,8 @@
   version 0.1.3.
 - Verified the exact 0.1.3-to-0.1.4 upgrade and byte-exact restore in an
   isolated fixture.
-- Installed version 0.1.4; its transformer dialog remains pending in-game
-  validation.
+- Installed version 0.1.4; runtime 5 subsequently opened the transformer
+  dialog successfully in game.
 
 ## 0.1.3 - 2026-08-20
 

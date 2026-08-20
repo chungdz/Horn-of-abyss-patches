@@ -11,10 +11,19 @@ from datetime import datetime
 from pathlib import Path
 
 
-VERSION = "0.1.4"
+VERSION = "0.1.5"
 RUNTIME_LOG_MARKER = "Pixie Transformer runtime 5"
-LANGUAGE_ARCHIVE_HASH = (
+ORIGINAL_LANGUAGE_ARCHIVE_HASH = (
     "748b54cfac02ffc795f4b0c48c7cf6ef41ea0a6020f3cf41766271bd12eb81e9"
+)
+PATCHED_LANGUAGE_ARCHIVE_HASH = (
+    "750a3384ad1bef990ec723154731ca24482e44f7f1f3390330c34c8fc89f162d"
+)
+LEGACY_BUILDING_TEXT_HASH = (
+    "b3656c794d73b5003d635df7567b8eee09e975ba3316ec7d49bdb3c0df9cfb67"
+)
+PATCHED_BUILDING_TEXT_HASH = (
+    "5c077d1592862dc5172eeab2ad9177aa4eefe13abbf1f052e4106bc0ba58b402"
 )
 CONFLUX_SPIRITISM_RUNTIME_HASH = (
     "67c071790536f4186df0b348f59a7ce06b176168442d56454be7e96dde8507fd"
@@ -61,6 +70,7 @@ PATCH_FILES = (
     SPIRITISM_COMPANION_PATH,
     LOG_PATH,
     BUILDING_TEXT_PATH,
+    LANGUAGE_ARCHIVE_PATH,
 )
 
 ORIGINAL_GARDEN_ROWS = (
@@ -75,9 +85,9 @@ ORIGINAL_GARDEN_ROWS = (
         b"10 per week.\t"
     ),
 )
-PIXIE_TRANSFORMER_ROW = (
-    b"Pixie Transformer\t"
-    b"The Pixie Transformer allows you to convert any creature "
+GARDEN_TRANSFORMER_ROW = (
+    b"Garden of Life\t"
+    b"The Garden of Life allows you to convert any creature "
     b"into a Pixie.\t"
 )
 
@@ -115,12 +125,12 @@ def find_lod_entry(archive, requested_name):
             offset, size, _, compressed_size = struct.unpack_from(
                 "<IIII", archive, entry_offset + 16
             )
-            return offset, size, compressed_size
+            return entry_offset, offset, size, compressed_size
     raise RuntimeError(f"LOD entry not found: {requested_name}")
 
 
 def extract_lod_entry(archive, name):
-    offset, size, compressed_size = find_lod_entry(archive, name)
+    _, offset, size, compressed_size = find_lod_entry(archive, name)
     stored_size = compressed_size or size
     stored = archive[offset : offset + stored_size]
     if len(stored) != stored_size:
@@ -131,10 +141,9 @@ def extract_lod_entry(archive, name):
     return data
 
 
-def generated_building_text(game_dir):
-    archive_path = game_dir / LANGUAGE_ARCHIVE_PATH
-    archive = read_required(archive_path)
-    if sha256(archive) != LANGUAGE_ARCHIVE_HASH:
+def patched_resources(game_dir):
+    archive = read_required(game_dir / LANGUAGE_ARCHIVE_PATH)
+    if sha256(archive) != ORIGINAL_LANGUAGE_ARCHIVE_HASH:
         raise RuntimeError(
             "The installed HotA_lng.lod checksum is not the reviewed "
             "English HotA 1.8.0 archive."
@@ -148,10 +157,47 @@ def generated_building_text(game_dir):
             )
         building_text = building_text.replace(
             original,
-            PIXIE_TRANSFORMER_ROW,
+            GARDEN_TRANSFORMER_ROW,
             1,
         )
-    return building_text
+    if sha256(building_text) != PATCHED_BUILDING_TEXT_HASH:
+        raise RuntimeError("The generated Garden description is unexpected.")
+
+    entry_offset, offset, size, compressed_size = find_lod_entry(
+        archive,
+        "BldgSpec.txt",
+    )
+    if compressed_size == 0:
+        raise RuntimeError(
+            "The reviewed BldgSpec.txt archive layout is unexpected."
+        )
+    compressed = zlib.compress(building_text, 9)
+    if len(compressed) > compressed_size:
+        raise RuntimeError(
+            "The revised BldgSpec.txt does not fit its reviewed archive slot."
+        )
+    patched_archive = bytearray(archive)
+    patched_archive[offset : offset + compressed_size] = (
+        compressed + b"\0" * (compressed_size - len(compressed))
+    )
+    struct.pack_into(
+        "<I",
+        patched_archive,
+        entry_offset + 20,
+        len(building_text),
+    )
+    struct.pack_into(
+        "<I",
+        patched_archive,
+        entry_offset + 28,
+        len(compressed),
+    )
+    patched_archive = bytes(patched_archive)
+    if sha256(patched_archive) != PATCHED_LANGUAGE_ARCHIVE_HASH:
+        raise RuntimeError("The generated HotA_lng.lod checksum is unexpected.")
+    if extract_lod_entry(patched_archive, "BldgSpec.txt") != building_text:
+        raise RuntimeError("The revised language archive failed verification.")
+    return patched_archive, building_text
 
 
 def last_launch_state(game_dir):
@@ -182,10 +228,10 @@ def last_launch_state(game_dir):
 
 
 def collect_status(game_dir):
-    expected_text = generated_building_text(game_dir)
     runtime_hash = path_hash(game_dir / RUNTIME_PATH)
     companion_hash = path_hash(game_dir / SPIRITISM_COMPANION_PATH)
     building_text_hash = path_hash(game_dir / BUILDING_TEXT_PATH)
+    language_archive_hash = path_hash(game_dir / LANGUAGE_ARCHIVE_PATH)
     return {
         "executables": {
             name: (
@@ -222,10 +268,21 @@ def collect_status(game_dir):
             else "unknown"
         ),
         "building_text": (
-            "pixie-transformer"
-            if building_text_hash == sha256(expected_text)
+            "garden-description"
+            if building_text_hash == PATCHED_BUILDING_TEXT_HASH
+            else "legacy-renamed"
+            if building_text_hash == LEGACY_BUILDING_TEXT_HASH
             else "original-archive"
             if building_text_hash is None
+            else "unknown"
+        ),
+        "language_archive": (
+            "garden-description"
+            if language_archive_hash == PATCHED_LANGUAGE_ARCHIVE_HASH
+            else "reviewed-original"
+            if language_archive_hash == ORIGINAL_LANGUAGE_ARCHIVE_HASH
+            else "missing"
+            if language_archive_hash is None
             else "unknown"
         ),
         "last_launch": last_launch_state(game_dir),
@@ -240,7 +297,8 @@ def fully_applied(status):
         )
         and status["runtime"] == "pixie-transformer"
         and status["spiritism_companion"] == "conflux-spiritism-0.2.9"
-        and status["building_text"] == "pixie-transformer"
+        and status["building_text"] == "garden-description"
+        and status["language_archive"] == "garden-description"
     )
 
 
@@ -251,6 +309,7 @@ def print_status(status):
     print(f"  loader runtime: {status['runtime']}")
     print(f"  Spiritism companion: {status['spiritism_companion']}")
     print(f"  building text: {status['building_text']}")
+    print(f"  language archive: {status['language_archive']}")
     print(f"  last launch: {status['last_launch']}")
     print(f"  complete: {'yes' if fully_applied(status) else 'no'}")
 
@@ -268,42 +327,55 @@ def validate_prerequisite(status):
         status["runtime"] == "conflux-spiritism-0.2.9"
         and status["spiritism_companion"] == "missing"
         and status["building_text"] == "original-archive"
+        and status["language_archive"] == "reviewed-original"
     ):
         return "fresh"
     if (
         status["runtime"] == "pixie-transformer-0.1.0"
         and status["spiritism_companion"] == "conflux-spiritism-0.2.9"
-        and status["building_text"] == "pixie-transformer"
+        and status["building_text"] == "legacy-renamed"
+        and status["language_archive"] == "reviewed-original"
     ):
         return "upgrade-0.1.0"
     if (
         status["runtime"] == "pixie-transformer-0.1.1"
         and status["spiritism_companion"] == "conflux-spiritism-0.2.9"
-        and status["building_text"] == "pixie-transformer"
+        and status["building_text"] == "legacy-renamed"
+        and status["language_archive"] == "reviewed-original"
     ):
         return "upgrade-0.1.1"
     if (
         status["runtime"] == "pixie-transformer-0.1.2"
         and status["spiritism_companion"] == "conflux-spiritism-0.2.9"
-        and status["building_text"] == "pixie-transformer"
+        and status["building_text"] == "legacy-renamed"
+        and status["language_archive"] == "reviewed-original"
     ):
         return "upgrade-0.1.2"
     if (
         status["runtime"] == "pixie-transformer-0.1.3"
         and status["spiritism_companion"] == "conflux-spiritism-0.2.9"
-        and status["building_text"] == "pixie-transformer"
+        and status["building_text"] == "legacy-renamed"
+        and status["language_archive"] == "reviewed-original"
     ):
         return "upgrade-0.1.3"
+    if (
+        status["runtime"] == "pixie-transformer"
+        and status["spiritism_companion"] == "conflux-spiritism-0.2.9"
+        and status["building_text"] == "legacy-renamed"
+        and status["language_archive"] == "reviewed-original"
+    ):
+        return "upgrade-0.1.4"
     if status["runtime"] not in (
         "conflux-spiritism-0.2.9",
         "pixie-transformer-0.1.0",
         "pixie-transformer-0.1.1",
         "pixie-transformer-0.1.2",
         "pixie-transformer-0.1.3",
+        "pixie-transformer",
     ):
         raise RuntimeError(
             "Install Conflux Spiritism 0.2.9 or the reviewed Pixie "
-            "Transformer 0.1.0/0.1.1/0.1.2/0.1.3 runtime first."
+            "Transformer 0.1.0 through 0.1.4 release first."
         )
     raise RuntimeError("The installed Pixie Transformer state is incomplete.")
 
@@ -355,7 +427,7 @@ def apply_patch(game_dir):
         print_status(status)
         return
     install_mode = validate_prerequisite(status)
-    building_text = generated_building_text(game_dir)
+    language_archive, building_text = patched_resources(game_dir)
     spiritism_runtime = read_required(
         game_dir
         / (
@@ -373,8 +445,9 @@ def apply_patch(game_dir):
     building_path = game_dir / BUILDING_TEXT_PATH
     building_path.parent.mkdir(parents=True, exist_ok=True)
     building_path.write_bytes(building_text)
+    (game_dir / LANGUAGE_ARCHIVE_PATH).write_bytes(language_archive)
     log_path = game_dir / LOG_PATH
-    if log_path.is_file():
+    if install_mode != "upgrade-0.1.4" and log_path.is_file():
         log_path.unlink()
 
     final_status = collect_status(game_dir)
@@ -400,6 +473,28 @@ def latest_backup(game_dir):
     return backups[-1]
 
 
+def original_language_archive_from_backup(game_dir):
+    backup_root = game_dir / "PixieTransformerPatch" / "backups"
+    if not backup_root.is_dir():
+        return None
+    for backup_dir in sorted(backup_root.iterdir(), reverse=True):
+        manifest_path = backup_dir / "manifest.json"
+        if not manifest_path.is_file():
+            continue
+        manifest = json.loads(read_required(manifest_path).decode("ascii"))
+        expected_hash = manifest.get("files", {}).get(LANGUAGE_ARCHIVE_PATH)
+        if expected_hash != ORIGINAL_LANGUAGE_ARCHIVE_HASH:
+            continue
+        archive = read_required(backup_dir / LANGUAGE_ARCHIVE_PATH)
+        if sha256(archive) != expected_hash:
+            raise RuntimeError(
+                "Backup checksum mismatch: "
+                f"{backup_dir / LANGUAGE_ARCHIVE_PATH}"
+            )
+        return archive
+    return None
+
+
 def restore_patch(game_dir, requested_backup):
     backup_dir = (
         Path(requested_backup).resolve()
@@ -410,6 +505,18 @@ def restore_patch(game_dir, requested_backup):
     manifest = json.loads(read_required(manifest_path).decode("ascii"))
     if manifest.get("patch") != "Pixie Transformer":
         raise RuntimeError(f"Not a Pixie Transformer backup: {backup_dir}")
+    recovered_archive = None
+    if (
+        LANGUAGE_ARCHIVE_PATH not in manifest["files"]
+        and path_hash(game_dir / LANGUAGE_ARCHIVE_PATH)
+        == PATCHED_LANGUAGE_ARCHIVE_HASH
+    ):
+        recovered_archive = original_language_archive_from_backup(game_dir)
+        if recovered_archive is None:
+            raise RuntimeError(
+                "This older backup predates language-archive tracking, and "
+                "no verified original HotA_lng.lod checkpoint is available."
+            )
     for relative, expected_hash in manifest["files"].items():
         destination = game_dir / relative
         if expected_hash is None:
@@ -422,6 +529,8 @@ def restore_patch(game_dir, requested_backup):
             raise RuntimeError(f"Backup checksum mismatch: {source}")
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_bytes(data)
+    if recovered_archive is not None:
+        (game_dir / LANGUAGE_ARCHIVE_PATH).write_bytes(recovered_archive)
     print(f"Restored: {backup_dir}")
 
 
