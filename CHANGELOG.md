@@ -1,5 +1,24 @@
 # Changelog
 
+## Pixie Transformer 0.1.7 - 2026-08-20
+
+- Used the live runtime-6 result and active `CRTRAITS.TXT` to confirm that
+  creature ID `124` is `NOT USED (2)`.
+- Corrected the Firebird target to creature ID `130`.
+- Preserved the working native Bone Dragon-class detection and all resources.
+- Added runtime 7 and a guarded, byte-exact upgrade from version 0.1.6.
+- Validated in game that normal classes become Pixies and native Bone
+  Dragon classes become Firebirds.
+
+## Pixie Transformer 0.1.6 - 2026-08-20
+
+- Preserved the native Skeleton Transformer's creature classification.
+- Changed native Skeleton results to Pixie `118`.
+- Attempted to change native Bone Dragon `68` results to Firebird, but used
+  unused creature ID `124` and produced `NOT USED (2)` in game.
+- Updated the Garden description and modal text for Pixie/Firebird output.
+- Added runtime 6 and guarded upgrades from versions 0.1.4 and 0.1.5.
+
 ## Pixie Transformer 0.1.5 - 2026-08-20
 
 - Kept the town building name `Garden of Life`.

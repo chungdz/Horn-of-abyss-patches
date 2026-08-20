@@ -4,13 +4,14 @@
 
 - Game: Horn of the Abyss 1.8.0
 - HD Mod: 5.6 R16
-- Patch version: 0.1.5
-- Runtime marker: `Pixie Transformer runtime 5`
+- Patch version: 0.1.7
+- Runtime marker: `Pixie Transformer runtime 7`
 - Prerequisite: Conflux Spiritism 0.2.9, runtime 11
 - Town: Conflux, ID `8`
 - Garden controls and built bits: Horde 1 IDs `18` and `19`
 - Actual Magic Lantern dwelling controls: IDs `30` and `37`
-- Conversion target: Pixie, creature ID `118`
+- Normal conversion target: Pixie, creature ID `118`
+- Native Bone Dragon-class target: Firebird, creature ID `130`
 
 Reviewed prerequisite hashes:
 
@@ -20,32 +21,35 @@ Reviewed prerequisite hashes:
 | `h3hota HD.exe` | `110122278fb9a2ac66d39b5243d00561c6725fbda54bf23cf41c034baab6c080` |
 | `HotA.dll` | `e97aa25df70bc32c0cd5af20acec22207e86b13eb27fa5b705a102d5ef53fcec` |
 | Original `Data/HotA_lng.lod` | `748b54cfac02ffc795f4b0c48c7cf6ef41ea0a6020f3cf41766271bd12eb81e9` |
-| Description-only `Data/HotA_lng.lod` | `750a3384ad1bef990ec723154731ca24482e44f7f1f3390330c34c8fc89f162d` |
+| Pixie-only `Data/HotA_lng.lod` | `750a3384ad1bef990ec723154731ca24482e44f7f1f3390330c34c8fc89f162d` |
+| Pixie/Firebird `Data/HotA_lng.lod` | `fff4e987f186673eab7e7b3f875db7a845ef3934448825ad85dff39843c3c9a2` |
 | Spiritism `setseed.dll` | `67c071790536f4186df0b348f59a7ce06b176168442d56454be7e96dde8507fd` |
 | Pixie Transformer 0.1.0 runtime | `8956f877bf50ea63338230e956438bc8a8f8c15ea2ee5ad64a91690ea6b22b6f` |
 | Pixie Transformer 0.1.1 runtime | `ab7ba9cf873fd60a33c1ac8243591b1407d00b027d8885d808ef10e75e4ed336` |
 | Pixie Transformer 0.1.2 runtime | `e8f2268d696761bb9ddf9a5c0b9fc1dd53f2370d5cb87beb4e863f333e7cafc3` |
 | Pixie Transformer 0.1.3 runtime | `92c03e938cdd9d1354eb65146db15c286403ba50a2632445c24cd45bd07f73d8` |
 | Pixie Transformer 0.1.4 runtime | `26d84b9c76d59bd5988d390ce020a0c53b0778fb7db8831fbcb25244907a5a45` |
+| Pixie Transformer 0.1.6 runtime | `446aad2c399a457da1c24e48876f7d7673a60362ac0c341a3e2b50512bb75ca4` |
+| Pixie Transformer 0.1.7 runtime | `418103cc28826cda225439b6594b2ccb9c85176697d79a142bb9a0dbf47f2509` |
 
 ## Live Installed State
 
-Version 0.1.5 is installed in the live game directory. Static status verifies:
+Version 0.1.7 is installed in the live game directory. Static status verifies:
 
 - Pixie Transformer `setseed.dll`:
-  `26d84b9c76d59bd5988d390ce020a0c53b0778fb7db8831fbcb25244907a5a45`
+  `418103cc28826cda225439b6594b2ccb9c85176697d79a142bb9a0dbf47f2509`
 - Spiritism companion:
   `67c071790536f4186df0b348f59a7ce06b176168442d56454be7e96dde8507fd`
-- Description-only `Data/BldgSpec.txt`:
-  `5c077d1592862dc5172eeab2ad9177aa4eefe13abbf1f052e4106bc0ba58b402`
-- Description-only `Data/HotA_lng.lod`:
-  `750a3384ad1bef990ec723154731ca24482e44f7f1f3390330c34c8fc89f162d`
+- Pixie/Firebird `Data/BldgSpec.txt`:
+  `1c131975c28d7153b67de695cdbc97662681f90ed329d1986831d06a3026ed3d`
+- Pixie/Firebird `Data/HotA_lng.lod`:
+  `fff4e987f186673eab7e7b3f875db7a845ef3934448825ad85dff39843c3c9a2`
 - Reviewed executables and `HotA.dll`
 - Complete static patch state
 
-Backup `PixieTransformerPatch/backups/20260819-222310` contains the exact
-prior version 0.1.4 runtime, successful runtime log, Spiritism companion,
-renamed loose building text, and original language archive.
+Backup `PixieTransformerPatch/backups/20260820-131832` contains the exact
+prior version 0.1.6 runtime, its failed Firebird test log, Spiritism
+companion, and unchanged Pixie/Firebird resources.
 
 ## Runtime Composition
 
@@ -131,9 +135,10 @@ the runtime log; it never falls back to recruitment. While a Garden dialog is
 open, the helper:
 
 1. Saves the complete expanded table.
-2. Replaces every target with Pixie `118`.
-3. Calls the native transformer.
-4. Restores every original target immediately after the modal dialog closes.
+2. Replaces native Bone Dragon `68` targets with Firebird `130`.
+3. Replaces every other native target with Pixie `118`.
+4. Calls the native transformer.
+5. Restores every original target immediately after the modal dialog closes.
 
 The table is never changed outside the Garden dialog. The Necropolis
 transformer therefore retains Skeleton `56`, Bone Dragon `68`, and HotA's
@@ -149,8 +154,8 @@ them to:
 ```text
 Holding Area
 Pixie Transformer
-Move creatures to the Transformer to create Pixies
-Creatures in the Transformer will become Pixies
+Move creatures to the Transformer to create Pixies or Firebirds
+Creatures in the Transformer will become Pixies or Firebirds
 ```
 
 The four original pointers are restored when the dialog closes.
@@ -195,11 +200,19 @@ The Garden of Life allows you to convert any creature into a Pixie.
 Only the description changes; the town building name remains Garden of Life.
 The modal conversion window is still titled Pixie Transformer.
 
-The revised text compresses to 2142 bytes, fitting inside the original
+Version 0.1.6 changes the description again while retaining the original
+building name:
+
+```text
+Garden of Life
+Converts creatures to Pixies or Firebirds.
+```
+
+The revised 0.1.6 text compresses to 2153 bytes, fitting inside the original
 2155-byte archive slot. The installer overwrites that slot, zero-fills its
-unused 13 bytes, and changes only the entry's uncompressed and compressed
-size fields. Every LOD entry offset remains unchanged. It verifies the
-revised entry after decompression and also installs matching loose text.
+unused 2 bytes, and changes only the entry's uncompressed and compressed size
+fields. Every LOD entry offset remains unchanged. It verifies the revised
+entry after decompression and also installs matching loose text.
 
 ## Backup And Restore
 
@@ -215,7 +228,7 @@ Each apply records these paths under
 The manifest stores whether each path originally existed and the SHA-256 of
 every saved file. Restore verifies each backup hash and reinstates the exact
 state saved by the selected backup. Older manifests predate language-archive
-tracking; when one is selected from a 0.1.5 installation, restore retrieves
+tracking; when one is selected from a later installation, restore retrieves
 the verified original archive from the 0.1.5 checkpoint. Restoring backup
 `20260819-212836` returns to version 0.1.1, backup `20260819-212254` returns to
 version 0.1.0, and the original `20260819-211141` backup returns to the
@@ -280,6 +293,19 @@ held in `esi` is written to `HotA.dll+0x6354E4` at `HotA.dll+0x14826C`;
 version 0.1.4 reads that pointer and retains validation that its first entry is
 Skeleton `56`.
 
+## Version 0.1.6 Failure
+
+Runtime 6 successfully preserved the native classification and reported 16
+Bone Dragon-class entries, but their live result was `NOT USED (2)`. The
+active HotA `CRTRAITS.TXT` confirms:
+
+```text
+creature 124 = NOT USED (2)
+creature 130 = Firebird
+```
+
+Runtime 7 changes only the Firebird result constant from `124` to `130`.
+
 ## Validation State
 
 Completed:
@@ -313,10 +339,21 @@ Completed:
 - Exact 0.1.4-to-0.1.5 isolated upgrade and byte-exact restore
 - Revised LOD entry decompression and exact checksum verification
 - Live guarded upgrade to version 0.1.5
+- Reproducible runtime 6 build and `KERNEL32.dll`-only import audit
+- Fresh Conflux Spiritism-to-0.1.6 isolated install
+- Exact 0.1.5-to-0.1.6 isolated upgrade and byte-exact restore
+- Direct 0.1.4-to-0.1.6 isolated upgrade
+- Live guarded upgrade to version 0.1.6
+- Runtime 6 live Pixie success and `NOT USED (2)` Firebird-class failure
+- Active `CRTRAITS.TXT` verification of IDs `124` and `130`
+- Reproducible runtime 7 build and `KERNEL32.dll`-only import audit
+- Exact 0.1.6-to-0.1.7 isolated upgrade and byte-exact restore
+- Live guarded upgrade to version 0.1.7
+- Runtime 7 normal-class conversion to Pixie in game
+- Runtime 7 native Bone Dragon-class conversion to Firebird in game
 
 Pending:
 
-- Version 0.1.5 Garden description display after a fresh launch
 - Unchanged Magic Lantern recruitment
 - Weekly growth confirmation
 - HotA-added creature conversion

@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.1.7 - 2026-08-20
+
+- Recorded the live runtime-6 result: normal classes became Pixies, while all
+  16 detected Bone Dragon classes became `NOT USED (2)`.
+- Read HotA's active `CRTRAITS.TXT` and confirmed ID `124` is
+  `NOT USED (2)` and Firebird is ID `130`.
+- Corrected only the Firebird result ID from `124` to `130`.
+- Published runtime marker 7 without changing the Garden text or other hooks.
+- Verified reproducible DLL output and the exact 0.1.6-to-0.1.7 upgrade and
+  byte-exact restore in an isolated fixture.
+- Installed version 0.1.7 and validated both normal-to-Pixie and native Bone
+  Dragon-class-to-Firebird conversion in game.
+
+## 0.1.6 - 2026-08-20
+
+- Preserved each creature's native Skeleton Transformer result before
+  temporarily replacing the target table.
+- Attempted to map native Bone Dragon `68` results to Firebird, but used
+  unused creature ID `124`.
+- Mapped every other native result to Pixie `118`.
+- Preserved 1:1 stack counts and restored the complete native table after the
+  modal dialog closes.
+- Updated the Garden description and transformer dialog for both outputs.
+- Published runtime marker 6 with exact runtime and language-resource hashes.
+- Verified reproducible DLL output, the exact 0.1.5 upgrade and byte-exact
+  restore, the direct 0.1.4 upgrade, and a fresh Conflux Spiritism install in
+  isolated fixtures.
+- Installed version 0.1.6; its live test produced Pixies for normal classes
+  and `NOT USED (2)` for the 16 Bone Dragon classes.
+
 ## 0.1.5 - 2026-08-20
 
 - Recorded that runtime 5 opens the Garden transformer dialog successfully.

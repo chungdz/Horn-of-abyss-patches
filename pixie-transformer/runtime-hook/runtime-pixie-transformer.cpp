@@ -2,9 +2,12 @@
 #include <windows.h>
 #include <stdint.h>
 
-#define RUNTIME_VERSION 5
+#define RUNTIME_VERSION 7
+#define CREATURE_ID_SKELETON 56
+#define CREATURE_ID_BONE_DRAGON 68
 #define CREATURE_ID_PIXIE 118
 #define CREATURE_ID_SPRITE 119
+#define CREATURE_ID_FIREBIRD 130
 #define TOWN_TYPE_CONFLUX 8
 #define BUILDING_HORDE1 18
 #define BUILDING_HORDE1_UPGRADED 19
@@ -41,14 +44,14 @@ static volatile LONG last_garden_click_consumed;
 static uintptr_t transformer_target_table;
 static DWORD transformer_target_count;
 static DWORD saved_targets[TRANSFORMER_TARGET_CAPACITY];
-static DWORD pixie_targets[TRANSFORMER_TARGET_CAPACITY];
+static DWORD garden_targets[TRANSFORMER_TARGET_CAPACITY];
 
 static const char pixie_transformer_holding[] = "Holding Area";
 static const char pixie_transformer_title[] = "Pixie Transformer";
 static const char pixie_transformer_move[] =
-  "Move creatures to the Transformer to create Pixies";
+  "Move creatures to the Transformer to create Pixies or Firebirds";
 static const char pixie_transformer_result[] =
-  "Creatures in the Transformer will become Pixies";
+  "Creatures in the Transformer will become Pixies or Firebirds";
 
 static BOOL locate_hota_transformer_table(void);
 
@@ -259,6 +262,7 @@ static BOOL __stdcall handle_pixie_transformer_click(void *town_manager) {
   BYTE town_type = 0xFF;
   DWORD built_buildings = 0;
   DWORD index;
+  DWORD firebird_classes = 0;
   BOOL targets_applied = FALSE;
   BOOL text_applied = FALSE;
   BOOL opened = FALSE;
@@ -326,11 +330,16 @@ static BOOL __stdcall handle_pixie_transformer_click(void *town_manager) {
   }
 
   for (index = 0; index < transformer_target_count; index++) {
-    pixie_targets[index] = CREATURE_ID_PIXIE;
+    if (saved_targets[index] == CREATURE_ID_BONE_DRAGON) {
+      garden_targets[index] = CREATURE_ID_FIREBIRD;
+      firebird_classes++;
+    } else {
+      garden_targets[index] = CREATURE_ID_PIXIE;
+    }
   }
   targets_applied = safe_write(
     transformer_target_table,
-    pixie_targets,
+    garden_targets,
     transformer_target_count * sizeof(DWORD));
   if (targets_applied) {
     text_applied = safe_write(
@@ -358,6 +367,8 @@ static BOOL __stdcall handle_pixie_transformer_click(void *town_manager) {
   if (opened) {
     append_text("Garden dialog=opened target count=");
     append_unsigned(transformer_target_count);
+    append_text(" firebird classes=");
+    append_unsigned(firebird_classes);
     append_text("\r\n");
     write_log();
   } else {
@@ -395,7 +406,7 @@ static BOOL locate_hota_transformer_table(void) {
         count <= TRANSFORMER_TARGET_CAPACITY &&
         table != 0 &&
         safe_read(table, &first_target, sizeof(first_target)) &&
-        first_target == 56) {
+        first_target == CREATURE_ID_SKELETON) {
         transformer_target_count = count;
         transformer_target_table = table;
         return TRUE;
@@ -648,10 +659,11 @@ static DWORD WINAPI patch_thread(LPVOID) {
   BOOL growth_suppressed;
   BOOL click_hook_installed;
 
-  append_text("Pixie Transformer runtime 5\r\n");
+  append_text("Pixie Transformer runtime 7\r\n");
   append_text(
     "town=Conflux click=Garden 18/19 "
-    "target=Pixie(118) conversion=1:1\r\n");
+    "target=Pixie(118) "
+    "native Bone Dragon(68)->Firebird(130) conversion=1:1\r\n");
   spiritism_module = load_spiritism_runtime();
   append_text("Conflux Spiritism runtime=");
   append_text(spiritism_module != NULL ? "loaded\r\n" : "failed\r\n");

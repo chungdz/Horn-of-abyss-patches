@@ -1,6 +1,6 @@
 # Pixie Transformer
 
-Version 0.1.5
+Version 0.1.7
 
 This HotA 1.8.0 overlay replaces the Conflux Garden of Life with a Pixie
 Transformer:
@@ -10,7 +10,9 @@ Transformer:
 - Left-clicking either Garden now replaces that recruitment action with the
   native Skeleton Transformer interface.
 - The real Magic Lantern dwelling controls remain unchanged.
-- Every selected stack is converted 1:1 into Pixies, creature ID `118`.
+- Creatures the native Skeleton Transformer maps to Skeletons become Pixies,
+  creature ID `118`.
+- Creatures it maps to Bone Dragons become Firebirds, creature ID `130`.
 - Stack counts are preserved.
 - The Garden's former `+10` weekly Pixie/Sprite growth bonus is removed.
 - The Necropolis Skeleton Transformer remains unchanged.
@@ -20,7 +22,7 @@ The town building keeps its original `Garden of Life` name. The patch changes
 only the two Garden descriptions to:
 
 ```text
-The Garden of Life allows you to convert any creature into a Pixie.
+Converts creatures to Pixies or Firebirds.
 ```
 
 HotA reads this town text from the `BldgSpec.txt` entry inside
@@ -96,34 +98,38 @@ python3 patch.py restore --game-dir "../.." \
 4. Confirm a real Magic Lantern still opens its normal Pixie/Sprite
    recruitment window.
 5. Build either Garden variant and confirm its name remains Garden of Life.
-6. Confirm its description explains conversion into a Pixie and no longer
-   claims to add `+10` weekly growth.
+6. Confirm its description explains conversion into Pixies or Firebirds and
+   no longer claims to add `+10` weekly growth.
 7. Left-click the Garden and confirm the native transformer window opens with
-   Pixie wording instead of creature recruitment.
-8. Move several creature stacks into the window and confirm each returns as
-   the same number of Pixies.
-9. Repeat with a HotA-added creature from Cove, Factory, or Vori.
-10. Confirm existing Pixies cannot be transformed again.
-11. Advance to a new week and confirm the former `+10` Garden growth bonus is
+   Pixie/Firebird wording instead of creature recruitment.
+8. Transform a creature that the Skeleton Transformer turns into a Skeleton;
+   confirm it returns as the same number of Pixies.
+9. Transform a creature that the Skeleton Transformer turns into a Bone
+   Dragon; confirm it returns as the same number of Firebirds.
+10. Repeat both classes with HotA-added creatures where available.
+11. Confirm existing Pixies cannot be transformed again.
+12. Advance to a new week and confirm the former `+10` Garden growth bonus is
     absent.
-12. Open a Necropolis Skeleton Transformer and confirm it still produces
+13. Open a Necropolis Skeleton Transformer and confirm it still produces
     Skeletons or Bone Dragons normally.
-13. Win battles with Nyx and another Conflux Spiritist and confirm the
+14. Win battles with Nyx and another Conflux Spiritist and confirm the
     Spiritism 0.2.9 Sprite/Pixie split is unchanged.
 
-The transformer dialog and conversion path were validated in game with
-runtime 5. The version 0.1.5 description display remains pending a fresh game
-launch.
+The Pixie-only transformer dialog and conversion path were validated in game
+with runtime 5. Runtime 6 correctly identified the Bone Dragon classes but
+produced `NOT USED (2)` because it targeted unused creature ID `124`. Runtime
+7 corrects the target to Firebird ID `130`. Both normal-to-Pixie and native
+Bone Dragon-class-to-Firebird results are validated in game.
 
 ## Installed State
 
-Version 0.1.5 is installed in the live game directory. Static status reports
+Version 0.1.7 is installed in the live game directory. Static status reports
 the overlay runtime, Spiritism companion, reviewed executables, `HotA.dll`,
-description-only loose text, and patched language archive complete. The
-pre-upgrade version 0.1.4 state is saved under:
+Pixie/Firebird building text, and patched language archive complete. The
+pre-upgrade version 0.1.6 state is saved under:
 
 ```text
-PixieTransformerPatch/backups/20260819-222310
+PixieTransformerPatch/backups/20260820-131832
 ```
 
 Version 0.1.0 failed its first in-game test: clicking the visible Garden
@@ -139,6 +145,9 @@ target-table global. Version 0.1.4 reads the pointer from the initializer's
 verified storage location at `HotA.dll+0x6354E4`; its runtime log confirms the
 Garden dialog opens. Version 0.1.5 retains that runtime and moves the
 description-only override into the language archive HotA actually loads.
+Version 0.1.6 preserves the native Skeleton/Bone Dragon classification,
+but mistakenly maps the latter to unused ID `124`. Version 0.1.7 retains the
+classification and corrects the Firebird target to ID `130`.
 
 ## Files
 
