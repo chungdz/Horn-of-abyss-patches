@@ -1,6 +1,6 @@
 # Nyx Spiritism
 
-Version 0.1.5
+Version 0.1.6
 
 This HotA 1.8.0 patch gives Nyx a Nyx-only secondary skill named Spiritism.
 It is implemented as Necromancy internally, preserving the game's existing
@@ -18,17 +18,17 @@ patch must already be applied.
 - Basic ratio: 5%
 - Advanced ratio: 10%
 - Expert ratio: 15%
-- Raised creature for Nyx: Pixie, creature ID `118`
+- Raised creature for Nyx: Sprite, creature ID `119`
 - Necromancy Amplifiers: handled by HotA's native calculation
 - Amulet of the Undertaker: handled by HotA's native calculation
 - Vampire's Cowl: handled by HotA's native calculation
 - Dead Man's Boots: handled by HotA's native calculation
-- Cloak of the Undead King: percentage bonus retained; Nyx still raises Pixies
+- Cloak of the Undead King: percentage bonus retained; Nyx still raises Sprites
 
 The ratio is the percentage of defeated-creature health used by Necromancy.
-The game then divides that value by the raised creature's health. Pixies have
+The game then divides that value by the raised creature's health. Sprites have
 less health than Skeletons, so the same percentage can produce more individual
-Pixies than Skeletons. This is the native Necromancy formula using Pixies as
+Sprites than Skeletons. This is the native Necromancy formula using Sprites as
 the result creature.
 
 ## Supplied Icons
@@ -91,7 +91,7 @@ python3 patch.py restore --game-dir "../.." \
 5. Right-click Spiritism and confirm the large custom icon and description
    appear.
 6. Start and finish a battle against living creatures without a crash.
-7. Confirm Pixies are raised and the result message begins with
+7. Confirm Sprites are raised and the result message begins with
    `Practicing the art of Spiritism`.
 8. Equip Vampire's Cowl and confirm the raised amount increases.
 9. Own a Necromancy Amplifier and confirm its bonus increases the amount.

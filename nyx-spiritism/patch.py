@@ -22,7 +22,7 @@ NECROMANCY_ICON_FRAMES = (39, 40, 41)
 SMALL_RESOURCE_NAME = "SPIRIT.def"
 LARGE_RESOURCE_NAME = "SPIR82.def"
 RESOURCE_NAMES = (SMALL_RESOURCE_NAME, LARGE_RESOURCE_NAME)
-RUNTIME_LOG_MARKER = "Nyx Spiritism runtime 8"
+RUNTIME_LOG_MARKER = "Nyx Spiritism runtime 9"
 SECSKILL_HASH = (
     "298f31e75e045fcb1195d870efbed8d7f5ecb81bab18e0ffc89ccc6a81c91aee"
 )
@@ -37,6 +37,7 @@ NYX_RUNTIME_HASH = (
 )
 PREVIOUS_SPIRITISM_RUNTIME_HASHES = {
     NYX_RUNTIME_HASH,
+    "54c997f1aebc081f2b944cbb9cecb366121c91ab83e3963056ac3641b4656a9f",
     "54230707e8c864e1007deb6632c15238c4dadbfc78c9660432aa45262b361e46",
     "a36721ed5751df07d793f5e5f3ea536c53c69e368a2c15e104ca8954833fb4fa",
     "6944ce15b7277832ec91dff07e8add2ba947a6c9b14b7e3d93bbfec0b3e263eb",
@@ -652,6 +653,8 @@ def collect_status(game_dir, generated_resources=None):
             if runtime_hash == expected_runtime_hash
             else "nyx-original"
             if runtime_hash == NYX_RUNTIME_HASH
+            else "spiritism-previous"
+            if runtime_hash in PREVIOUS_SPIRITISM_RUNTIME_HASHES
             else "missing"
             if runtime_hash is None
             else "unknown"

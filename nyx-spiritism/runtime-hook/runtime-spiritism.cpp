@@ -3,7 +3,7 @@
 #include <stdint.h>
 
 #define HERO_ID_NYX 140
-#define CREATURE_ID_PIXIE 118
+#define CREATURE_ID_SPRITE 119
 #define SECONDARY_SKILL_NECROMANCY 12
 #define SECONDARY_SKILL_TEXT_ADDRESS 0x0067DCF0
 #define SECONDARY_SKILL_DEFINITION_ADDRESS 0x006601D0
@@ -122,17 +122,17 @@ static const char spiritism_name[] = "Spiritism";
 static const char basic_spiritism_description[] =
   "{Basic Spiritism}\n\n"
   "After combat, 5% of the health of slain living creatures is summoned "
-  "as Pixies. Buildings and artifacts that enhance this power increase "
+  "as Sprites. Buildings and artifacts that enhance this power increase "
   "the percentage.";
 static const char advanced_spiritism_description[] =
   "{Advanced Spiritism}\n\n"
   "After combat, 10% of the health of slain living creatures is summoned "
-  "as Pixies. Buildings and artifacts that enhance this power increase "
+  "as Sprites. Buildings and artifacts that enhance this power increase "
   "the percentage.";
 static const char expert_spiritism_description[] =
   "{Expert Spiritism}\n\n"
   "After combat, 15% of the health of slain living creatures is summoned "
-  "as Pixies. Buildings and artifacts that enhance this power increase "
+  "as Sprites. Buildings and artifacts that enhance this power increase "
   "the percentage.";
 static const SecondarySkillText spiritism_text = {
   spiritism_name,
@@ -695,7 +695,7 @@ static BOOL set_spiritism_message(BOOL active) {
 static int __thiscall direct_get_necromancy_creature(void *hero) {
   if (is_spiritist_hero(hero)) {
     set_spiritism_message(TRUE);
-    return CREATURE_ID_PIXIE;
+    return CREATURE_ID_SPRITE;
   }
   set_spiritism_message(FALSE);
   return chained_get_necromancy_creature(hero);
@@ -1100,8 +1100,8 @@ static DWORD WINAPI patch_thread(LPVOID) {
   BOOL large_patched;
   BOOL hooks_installed;
 
-  append_text("Nyx Spiritism runtime 8\r\n");
-  append_text("hero=140 creature=118 underlying-skill=12\r\n");
+  append_text("Nyx Spiritism runtime 9\r\n");
+  append_text("hero=140 creature=119 underlying-skill=12\r\n");
   write_log();
 
   hooks_installed = install_hooks();

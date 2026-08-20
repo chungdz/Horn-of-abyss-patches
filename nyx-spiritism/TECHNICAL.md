@@ -6,8 +6,8 @@
 - Existing prerequisite patch: Nyx Pixie Elementalist 1.7.0 installation
 - Test hero: Nyx
 - Hero ID: `140`
-- Raised creature: Pixie
-- Creature ID: `118`
+- Raised creature: Sprite
+- Creature ID: `119`
 - Internal secondary skill: Necromancy
 - Secondary skill ID: `12`
 
@@ -55,12 +55,13 @@ fix with Spiritism.
 
 | Address | HotA function | Change |
 | --- | --- | --- |
-| `0x004E3ED0` | `H3Hero::GetNecromancyCreatureId` | Return Pixie `118` when the hero is Nyx and has Necromancy |
+| `0x004E3ED0` | `H3Hero::GetNecromancyCreatureId` | Return Sprite `119` when the hero is Nyx and has Necromancy |
 | `0x004E1A70` | Standard hero dialog | Scope the Spiritism text and resource-name aliases around Nyx's modal dialog |
 | `0x004DA990` | Hero level-up processing | Scope the same aliases around Nyx's level-up UI |
 
 HotA and HD Mod have already placed five-byte relative jumps at those three
-function entries by the time the runtime installs. Runtime 8 waits until all
+function entries by the time the runtime installs. Runtime 9 retains runtime
+8's direct-chaining design: it waits until all
 reviewed game and HD call bytes remain unchanged for one second, records each
 existing jump target, and replaces the jump with one to the Spiritism wrapper.
 The wrapper calls the recorded target for native behavior.
@@ -82,8 +83,8 @@ other percentage modifiers.
 
 The Cloak of the Undead King normally changes the raised creature according
 to Necromancy level. Nyx's creature-selection hook takes precedence and
-always returns Pixie while leaving the Cloak's percentage contribution in the
-native power function.
+always returns Sprite while leaving the Cloak's percentage contribution in
+the native power function.
 
 ## UI Alias
 
@@ -92,9 +93,9 @@ table. The runtime reads that pointer, selects Necromancy entry `12`, and
 temporarily replaces its four pointers during Nyx's hero or level-up UI with:
 
 - Name: `Spiritism`
-- Basic description: 5%, Pixies, and inherited building/artifact bonuses
-- Advanced description: 10%, Pixies, and inherited building/artifact bonuses
-- Expert description: 15%, Pixies, and inherited building/artifact bonuses
+- Basic description: 5%, Sprites, and inherited building/artifact bonuses
+- Advanced description: 10%, Sprites, and inherited building/artifact bonuses
+- Expert description: 15%, Sprites, and inherited building/artifact bonuses
 
 The displayed descriptions do not call the skill Necromancy. The original
 four pointers are restored immediately after the modal UI call returns.
@@ -111,7 +112,7 @@ used by the game's secondary-skill image paths:
 secskill.def 00 00 00 00
 ```
 
-For the synchronous duration of Nyx's modal hero or level-up call, runtime 8
+For the synchronous duration of Nyx's modal hero or level-up call, runtime 9
 replaces those 16 bytes with:
 
 ```text
@@ -119,14 +120,14 @@ SPIRIT.def 00 00 00 00 00 00
 ```
 
 The detail-popup image switch independently reads the 12-byte filename at
-`0x006600F8`. Runtime 8 changes `secsk82.def` to `SPIR82.def` in the same
+`0x006600F8`. Runtime 9 changes `secsk82.def` to `SPIR82.def` in the same
 scope. A nesting counter keeps both aliases active for nested UI calls. The
 original bytes and text pointers are restored before the outer call returns,
 so combat construction and normal heroes see only native resource names.
 
 The HD pregame hero panel is built by the stdcall function at
 `HD_HOTA.dll` RVA `0x002350E0`. Its two reviewed call sites are RVAs
-`0x0023708A` and `0x00237C9D`; runtime 8 redirects only those calls. For hero
+`0x0023708A` and `0x00237C9D`; runtime 9 redirects only those calls. For hero
 ID `140`, the wrapper scopes the normal Spiritism text aliases and changes the
 HD module's 16-byte `Secskill.def` literal at RVA `0x002A0450` to
 `SPIRIT.def` while the panel controls are constructed. The literal resides in
@@ -140,7 +141,7 @@ entries `171` and `172`. The General Text object pointer is stored at
 `0x006A5DC4`, its string table begins at object offset `0x20`, and the two
 entry-pointer offsets are `0x2AC` and `0x2B0`.
 
-Once the creature-selection hook confirms that Nyx is raising Pixies, the
+Once the creature-selection hook confirms that Nyx is raising Sprites, the
 runtime replaces those two string pointers before the result formatter reads
 them. The custom messages begin with:
 
@@ -225,7 +226,7 @@ only `KERNEL32.dll`. Repeated default builds are byte-identical to:
 
 ```text
 assets/NyxSpiritismRuntime.dll
-SHA-256 54c997f1aebc081f2b944cbb9cecb366121c91ab83e3963056ac3641b4656a9f
+SHA-256 1d08e5c9eee7d56a0be7dd141adca706ebf56ded99e42b5674f80fd8dc29f180
 ```
 
 At runtime it writes:
@@ -234,11 +235,17 @@ At runtime it writes:
 _HD3_Data/Common/NyxSpiritism.log
 ```
 
-The accepted runtime-8 test log reported all five direct hooks installed,
-both resource aliases ready, both Nyx specialty frames patched, and the final
-status `specialty fix and Spiritism hooks installed`. Manual testing then
+Runtime 9 changes only the returned creature ID, descriptions, and log marker
+over the accepted runtime-8 implementation. The previous runtime-8 test
 covered a clean HD launch, the pregame panel, hero page, skill-detail popup,
 battle startup and completion, Pixie raising, and the Spiritism result text.
+Runtime 9 still requires an in-game confirmation that Sprite raising works in
+both manual and quick combat.
+
+The 0.1.6 installer was exercised against an isolated reconstruction of the
+reviewed 0.1.5 installation. It recognized the old runtime checksum, upgraded
+the generated resources and DLL, and reported both executables, every
+resource copy, both registrations, and the new runtime complete.
 
 ## Files Changed By Apply
 

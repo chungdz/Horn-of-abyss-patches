@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.8 - 2026-08-20
+
+- Changed the default English Spiritism result creature from Pixie `118` to
+  Sprite `119`.
+- Updated all three English Spiritism descriptions to name Sprites.
+- Preserved the 10%/20%/30% rates and the existing Cloak mapping to Fire,
+  Earth, and Psychic Elementals.
+- Left ordinary Necromancy and the unresolved Chinese Pixie-only runtime
+  unchanged.
+- Advanced the packaged runtime marker to runtime 10.
+- Added guarded in-place upgrade support for the reviewed 0.2.7 runtime and
+  both Nyx Spiritism 0.1.5 and 0.1.6 prerequisites.
+- Validated Sprite raising in game with runtime 10.
+
 ## 0.2.7 - 2026-08-16
 
 - Chained HotA's native raised-creature selector for English Spiritism heroes.

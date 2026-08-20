@@ -15,7 +15,7 @@ HERO_RECORD_STRIDE = 0x5C
 FIRST_SKILL_TYPE_OFFSET = 0x27CBDC
 NECROMANCY = 12
 EMPTY_SKILL = 0xFFFFFFFF
-RUNTIME_LOG_MARKER = "Conflux Spiritism runtime 9"
+RUNTIME_LOG_MARKER = "Conflux Spiritism runtime 10"
 
 HEROES = (
     (128, "Pasis", 22, 1, 20, 1),
@@ -68,8 +68,11 @@ CONFLUX_EXECUTABLE_HASHES = {
         "110122278fb9a2ac66d39b5243d00561c6725fbda54bf23cf41c034baab6c080"
     ),
 }
-NYX_RUNTIME_HASH = (
+NYX_015_RUNTIME_HASH = (
     "54c997f1aebc081f2b944cbb9cecb366121c91ab83e3963056ac3641b4656a9f"
+)
+NYX_RUNTIME_HASH = (
+    "1d08e5c9eee7d56a0be7dd141adca706ebf56ded99e42b5674f80fd8dc29f180"
 )
 CONFLUX_010_RUNTIME_HASH = (
     "eabfbe0bf6e98612895359e2d96746fc9405ddd32c43aad901e07753ab0670d0"
@@ -94,6 +97,9 @@ CONFLUX_025_RUNTIME_HASH = (
 )
 CONFLUX_026_RUNTIME_HASH = (
     "8841bc03b8a2e9cc39aacce50d963c55c37b2c635e701521ce6d07b85c6e396c"
+)
+CONFLUX_027_RUNTIME_HASH = (
+    "938d53c27c298a4d856bef7d793724858a3fdcf262aff1a00cb1fd3488473a7a"
 )
 SMALL_RESOURCE_HASH = (
     "ba4ba357d2859b8e5dc8077bce00b1effc0a40b42fb25fa9f53ed76dd0d85eb3"
@@ -480,8 +486,12 @@ def collect_status(game_dir):
         if runtime_hash == CONFLUX_025_RUNTIME_HASH
         else "conflux-spiritism-0.2.6"
         if runtime_hash == CONFLUX_026_RUNTIME_HASH
+        else "conflux-spiritism-0.2.7"
+        if runtime_hash == CONFLUX_027_RUNTIME_HASH
         else "nyx-spiritism"
         if runtime_hash == NYX_RUNTIME_HASH
+        else "nyx-spiritism-0.1.5"
+        if runtime_hash == NYX_015_RUNTIME_HASH
         else "missing"
         if runtime_hash is None
         else "unknown"
@@ -583,7 +593,10 @@ def validate_prerequisite(game_dir, status):
             "An unknown UN32.def or UN44.def HD override is installed."
         )
     if nyx_executables:
-        if status["runtime"] != "nyx-spiritism":
+        if status["runtime"] not in (
+            "nyx-spiritism",
+            "nyx-spiritism-0.1.5",
+        ):
             raise RuntimeError(
                 "The installed runtime is not the reviewed Nyx Spiritism DLL."
             )
@@ -607,6 +620,7 @@ def validate_prerequisite(game_dir, status):
             "conflux-spiritism-0.2.4",
             "conflux-spiritism-0.2.5",
             "conflux-spiritism-0.2.6",
+            "conflux-spiritism-0.2.7",
         ):
             raise RuntimeError(
                 "The installed Conflux runtime is not a reviewed upgrade source."
@@ -618,7 +632,7 @@ def validate_prerequisite(game_dir, status):
                 )
         return
     raise RuntimeError(
-        "Apply Nyx Spiritism 0.1.5 or a reviewed Conflux Spiritism release "
+        "Apply Nyx Spiritism 0.1.6 or a reviewed Conflux Spiritism release "
         "first."
     )
 

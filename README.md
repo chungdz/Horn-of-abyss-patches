@@ -7,10 +7,10 @@ Horn of the Abyss.
 
 - [Nyx Pixie Elementalist](inteus-pixie-elementalist/README.md), version
   1.2.1, for HotA 1.8.0
-- [Nyx Spiritism](nyx-spiritism/README.md), version 0.1.5, for the installed
+- [Nyx Spiritism](nyx-spiritism/README.md), version 0.1.6, for the installed
   HotA 1.8.0 Nyx patch
-- [Conflux Spiritism](conflux-spiritism/README.md), version 0.2.7, extending
-  the tested Nyx Spiritism patch to all Conflux heroes
+- [Conflux Spiritism](conflux-spiritism/README.md), version 0.2.8, extending
+  the reviewed Nyx Spiritism patch to all Conflux heroes
 - [Chinese HotA 1.8.0 Conflux Spiritism Port](chinese-180-conflux-spiritism/README.md),
   version 0.1.2, unresolved after failed in-game validation; its attempted
   GBK and HD Mod 5.6 R10 port remains documented for further investigation

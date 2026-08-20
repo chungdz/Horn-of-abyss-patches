@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.6 - 2026-08-20
+
+- Changed Nyx's Spiritism result creature from Pixie `118` to Sprite `119`.
+- Updated the Basic, Advanced, and Expert descriptions to name Sprites.
+- Advanced the packaged runtime marker to runtime 9.
+- Kept the existing percentages, artifacts, Amplifiers, UI hooks, icons,
+  post-battle wording, and Nyx specialty handling unchanged.
+- Retained checksum-gated upgrade support for reviewed earlier Spiritism
+  runtimes.
+
 ## 0.1.5 - 2026-08-15
 
 - Added `SPIR82.def`, a full `SecSk82.def` clone whose Basic, Advanced, and
