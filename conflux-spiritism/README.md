@@ -1,18 +1,19 @@
 # Conflux Spiritism
 
-Version 0.2.8
+Version 0.2.9
 
 This HotA 1.8.0 upgrade gives every Conflux hero Spiritism in the first
 secondary-skill slot. It builds on the reviewed
 [Nyx Spiritism](../nyx-spiritism/README.md) 0.1.6 patch and reuses its custom
 icons and loose resources.
 
-Spiritism remains Necromancy internally. Conflux heroes normally raise Sprites
-at 10%/20%/30% base rates while retaining HotA's native Amplifiers, artifacts,
-AI handling, rounding, save format, and post-battle army logic. With the Cloak
-of the Undead King they instead raise Fire Elementals at Basic, Earth
-Elementals at Advanced, and Psychic Elementals at Expert. Heroes outside the
-Conflux retain normal 5%/10%/15% Necromancy and Skeleton raising.
+Spiritism remains Necromancy internally. Nyx normally raises Sprites while
+the other fifteen Conflux heroes raise Pixies at 10%/20%/30% base rates. All
+retain HotA's native Amplifiers, artifacts, AI handling, rounding, save
+format, and post-battle army logic. With the Cloak of the Undead King they
+instead raise Fire Elementals at Basic, Earth Elementals at Advanced, and
+Psychic Elementals at Expert. Heroes outside the Conflux retain normal
+5%/10%/15% Necromancy and Skeleton raising.
 
 Version 0.2.1 removes obsolete 156-frame specialty-atlas overrides that caused
 HotA-added heroes to display unrelated specialty pictures.
@@ -48,23 +49,29 @@ Version 0.2.8 changes that default English result to Sprite. The three Cloak
 results, ordinary Necromancy, and the unresolved Chinese Pixie-only runtime
 remain unchanged.
 
+Version 0.2.9 limits that Sprite result to Nyx. Other Conflux Spiritists
+return to raising Pixies without the Cloak.
+
 ## Installed State
 
 Installed release state:
 
-- Runtime 10, SHA-256
-  `6e1c82e0ba5100505bddb55a4f0089694a1ee9fe7b5144a3db3ad5098e0a694e`
+- Runtime 11, SHA-256
+  `67c071790536f4186df0b348f59a7ce06b176168442d56454be7e96dde8507fd`
 - Spiritism for all sixteen Conflux heroes
-- Conflux-only 10%/20%/30% rates, Sprite raising, and custom Cloak creatures
+- Conflux-only 10%/20%/30% rates
+- Sprite raising for Nyx and Pixie raising for other Conflux heroes
+- Custom Cloak creatures for every Conflux Spiritist
 - `SPIRIT.def`, `SPIR32.def`, and `SPIR82.def` skill icons
 - Spiritism names, descriptions, level-up UI, pregame UI, and battle wording
 - Nyx's Pixie specialty portrait in standard, pregame, and supported exchange
   dialogs
 - Null guards for both HotA hero-inspection handlers
 
-The guarded installer, static machine-code checks, and runtime hook
-installation pass. Runtime 10 was validated in game with Sprite raising.
-Runtime 9 had already validated all three unchanged custom Cloak results.
+The guarded installer, static machine-code checks, and runtime 11 hook
+installation pass. Runtime 10 was validated in game with Sprite raising, and
+runtime 9 had already validated all three unchanged custom Cloak results.
+Runtime 11 still requires battle confirmation of the Nyx/Pixie split.
 
 Removed or disabled:
 
@@ -72,7 +79,7 @@ Removed or disabled:
 - Runtime specialty frame-pointer replacement
 - Runtime specialty pixel-buffer replacement
 
-`IX32.def` and `IX44.def` remain separate resources. Runtime 10 references
+`IX32.def` and `IX44.def` remain separate resources. Runtime 11 references
 them only while constructing a Nyx-specific dialog; it never copies their
 frames or pixels into HotA's loaded `UN32.def` or `UN44.def` objects.
 
@@ -101,21 +108,23 @@ Spiritism plus Vampire's Cowl uses 20%: the 10% Spiritism base plus the Cowl's
 normal 10% bonus.
 
 For each defeated stack, the native army calculation caps a creature's
-contributing health at the raised creature's health, then rounds down:
+contributing health at the raised creature's health, then rounds down. Pixies
+and Sprites both have 3 health:
 
 ```text
-raised Sprites from one stack =
-floor(casualties * min(defeated creature health, Sprite health)
-      * final rate / Sprite health)
+raised tier-one creatures from one stack =
+floor(casualties * min(defeated creature health, 3)
+      * final rate / 3)
 ```
 
-For example, 28 Sprites at 3 health each produce 2 Sprites with Basic
-Spiritism: `floor(28 * 3 * 0.10 / 3) = floor(2.8) = 2`. The same battle would
-produce only 1 Sprite at the former 5% rate.
+For example, 28 Sprites at 3 health each produce 2 creatures with Basic
+Spiritism: `floor(28 * 3 * 0.10 / 3) = floor(2.8) = 2`. Nyx raises 2 Sprites;
+another Conflux hero raises 2 Pixies. The same battle would produce only 1 at
+the former 5% rate.
 
-At Expert Spiritism, 56 Hobgoblins at 5 health each produce 16 Sprites:
-`floor(56 * min(5, 3) * 0.30 / 3) = floor(16.8) = 16`. Their health is capped
-at the Sprite's 3 health for this calculation.
+At Expert Spiritism, 56 Hobgoblins at 5 health each produce 16 Sprites for
+Nyx or 16 Pixies for another Conflux hero:
+`floor(56 * min(5, 3) * 0.30 / 3) = floor(16.8) = 16`.
 
 ## Hero Changes
 
@@ -145,7 +154,7 @@ Advanced Spiritism; all other Conflux heroes receive Basic Spiritism.
 
 For a fresh installation, apply and test Nyx Spiritism 0.1.6 first. The
 installer also supports in-place upgrades from reviewed Conflux Spiritism
-0.1.0 through 0.2.7 installations. It requires the exact:
+0.1.0 through 0.2.8 installations. It requires the exact:
 
 - Executable checksums
 - Runtime DLL checksum
@@ -198,8 +207,8 @@ python3 patch.py restore --game-dir "../.." \
 5. Confirm every second skill in the table above is unchanged.
 6. Enter a map with a non-Nyx Conflux hero and inspect the hero screen and
    right-click Spiritism detail dialog.
-7. Win a battle against living creatures and confirm Sprites are raised with a
-   Spiritism result message.
+7. Win battles against living creatures and confirm Nyx raises Sprites while
+   another Conflux hero raises Pixies, both with a Spiritism result message.
 8. Open a non-Conflux Necromancy hero and confirm normal Necromancy text,
    icons, and Skeleton raising remain unchanged.
 9. Inspect HotA-added Cove, Factory, and Vori heroes and confirm their
@@ -215,22 +224,24 @@ python3 patch.py restore --game-dir "../.." \
     supported exchange dialogs.
 13. Equip the Cloak of the Undead King and confirm Basic, Advanced, and Expert
     Spiritism raise Fire, Earth, and Psychic Elementals respectively. Remove
-    the Cloak and confirm the same heroes return to raising Sprites.
+    the Cloak and confirm Nyx returns to Sprites while the other heroes return
+    to Pixies.
 14. Equip the Ring of Oblivion and confirm Spiritism raises nothing, matching
     HotA's native suppression of ordinary Necromancy and all other restoration.
     Move the Ring to the backpack and confirm raising resumes.
 
 For a deterministic rate test, create a battle against exactly 120 Peasants
-with no artifacts or Amplifiers. Because each Peasant has 1 health and each
-Sprite has 3 health, the expected results are:
+with no artifacts or Amplifiers. Because each Peasant has 1 health and both
+Pixies and Sprites have 3 health, the expected results are:
 
-| Spiritism level | Raised Sprites |
-| --- | --- |
-| Basic | 4 |
-| Advanced | 8 |
-| Expert | 12 |
+| Spiritism level | Nyx Sprites | Other Conflux Pixies |
+| --- | --- | --- |
+| Basic | 4 | 4 |
+| Advanced | 8 | 8 |
+| Expert | 12 | 12 |
 
-Adding Vampire's Cowl raises the Basic result to 8 Sprites.
+Adding Vampire's Cowl raises the Basic result to 8 Sprites for Nyx or 8
+Pixies for another Conflux hero.
 
 With the Cloak of the Undead King, the summoned creature is:
 

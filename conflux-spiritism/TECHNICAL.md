@@ -4,24 +4,26 @@
 
 - Game: Horn of the Abyss 1.8.0
 - HD Mod: 5.6 R16
-- Patch version: 0.2.8
+- Patch version: 0.2.9
 - Prerequisite: Nyx Spiritism 0.1.5/0.1.6 or Conflux Spiritism
-  0.1.0/0.2.0/0.2.1/0.2.2/0.2.3/0.2.4/0.2.5/0.2.6/0.2.7
+  0.1.0/0.2.0/0.2.1/0.2.2/0.2.3/0.2.4/0.2.5/0.2.6/0.2.7/0.2.8
 - Conflux hero IDs: `128` through `143`
 - Internal secondary skill: Necromancy, ID `12`
-- Raised creature without Cloak: Sprite, creature ID `119`
+- Raised creature without Cloak: Sprite `119` for Nyx; Pixie `118` for the
+  other fifteen Conflux heroes
 - Raised creatures with Cloak: Fire Elemental `114`, Earth Elemental `113`,
   Psychic Elemental `120` at Basic, Advanced, and Expert
 - Spiritism base rates: 10%/20%/30%
 
 ## Live Installed State
 
-The live installation uses runtime 10 with SHA-256
-`6e1c82e0ba5100505bddb55a4f0089694a1ee9fe7b5144a3db3ad5098e0a694e`.
+The live installation uses runtime 11 with SHA-256
+`67c071790536f4186df0b348f59a7ce06b176168442d56454be7e96dde8507fd`.
 `patch.py status` reports both executables complete, all sixteen hero records
 as Spiritism, all three custom skill resources registered, and truncated
-specialty overrides removed. The runtime 10 launch log reports every gameplay,
-UI, exchange-dialog, and inspection-guard hook installed.
+specialty overrides removed. The runtime 11 launch log reports every gameplay,
+UI, exchange-dialog, and inspection-guard hook installed. The Nyx Sprite and
+other-Conflux Pixie split still requires battle validation.
 
 Active image resources:
 
@@ -31,7 +33,7 @@ Active image resources:
 - `IX32.def`: 32x32 Nyx specialty frames, scoped to supported exchanges
 - `IX44.def`: 44x44 Nyx specialty frames, scoped to hero dialogs
 
-The `IX` resources are loaded as independent DEFs. Runtime 10 does not replace
+The `IX` resources are loaded as independent DEFs. Runtime 11 does not replace
 a frame pointer or pixel buffer in HotA's shared specialty atlases.
 
 ## Executable Records
@@ -87,7 +89,7 @@ behavior and adds a Conflux-only power hook.
 
 | Address | Function | Change |
 | --- | --- | --- |
-| `0x004E3ED0` | `H3Hero::GetNecromancyCreatureId` | Return Sprite `119`, or map the native Cloak result to Fire `114`, Earth `113`, or Psychic `120` |
+| `0x004E3ED0` | `H3Hero::GetNecromancyCreatureId` | Return Sprite `119` for Nyx, Pixie `118` for other Conflux heroes, or map the native Cloak result to Fire `114`, Earth `113`, or Psychic `120` |
 | `0x004E3F40` | `H3Hero::GetNecromancyPower` | Add 5% per Spiritism level after HotA's native calculation |
 | `0x004E1A70` | Standard hero dialog | Scope the Spiritism text and resource aliases |
 | `0x004DA990` | Hero level-up processing | Scope the Spiritism text and resource aliases |
@@ -123,7 +125,8 @@ The English creature wrapper first calls the complete live HotA selector.
 HotA 1.8.0 returns Skeleton `56` without the Cloak, Walking Dead `58` at Basic,
 Wight `60` at Advanced, and Lich `64` at Expert. The wrapper maps the three
 Cloak results to Fire Elemental `114`, Earth Elemental `113`, and Psychic
-Elemental `120`; every other result becomes Sprite `119`. The
+Elemental `120`. Without a Cloak result, hero ID `140` becomes Sprite `119`
+and the other Conflux hero IDs become Pixie `118`. The
 `CHINESE_HOTA_R10` build retains its previously tested Pixie-only branch.
 
 The wrapper does not bypass HotA's later post-battle eligibility rules. In
@@ -146,14 +149,14 @@ the hero's internal Necromancy level to be nonzero. This affects:
 - 32x32, 44x44, and 82x93 custom icons
 - Spiritism post-battle result wording
 
-Runtime 10 does not modify a specialty atlas, frame-table pointer, frame
+Runtime 11 does not modify a specialty atlas, frame-table pointer, frame
 object, or pixel buffer. For Nyx's standard hero dialog it temporarily
 changes the `un44.def` resource literal at `0x00679D90` to `IX44.def`. For
 the HD pregame panel it scopes the equivalent literal at
 `HD_HOTA.dll+0x2A043C`.
 
 HD Mod replaces the original SwapMgr builder at `0x005AAD90` with a
-thiscall-compatible relative jump. Runtime 10 chains that live target and
+thiscall-compatible relative jump. Runtime 11 chains that live target and
 uses the builder's existing `H3Hero*[2]` argument to decide whether to scope:
 
 - `HD_HOTA.dll+0x297650`: `secsk32.def` to `SPIR32.def`
@@ -292,8 +295,8 @@ _HD3_Data/Common/ConfluxSpiritism.log
 Its success log begins with:
 
 ```text
-Conflux Spiritism runtime 10
-heroes=128-143 creature=119 cloak=114/113/120 rates=10/20/30 underlying-skill=12
+Conflux Spiritism runtime 11
+heroes=128-143 creature=118 nyx=119 cloak=114/113/120 rates=10/20/30 underlying-skill=12
 ```
 
 and must report the creature, rate, hero-dialog, level-up, HD hero-selection,
@@ -327,7 +330,7 @@ frames 39, 40, and 41 replaced by the Basic, Advanced, and Expert Spiritism
 art.
 
 The installer verifies the exact `IX32.def` and `IX44.def` copies in `Data`
-and both compatibility packs, plus both registration lines. Runtime 10
+and both compatibility packs, plus both registration lines. Runtime 11
 references them only through scoped resource-name aliases.
 
 ## Runtime Build
@@ -348,7 +351,7 @@ The deterministic Zig 0.15.2 x86 Windows build imports only `KERNEL32.dll`.
 
 ```text
 assets/ConfluxSpiritismRuntime.dll
-SHA-256 6e1c82e0ba5100505bddb55a4f0089694a1ee9fe7b5144a3db3ad5098e0a694e
+SHA-256 67c071790536f4186df0b348f59a7ce06b176168442d56454be7e96dde8507fd
 ```
 
 Two consecutive default builds reproduce this checksum byte for byte.
@@ -529,6 +532,22 @@ registrations, and specialty-override state complete. The installed and
 packaged runtime 10 DLLs both match
 `6e1c82e0ba5100505bddb55a4f0089694a1ee9fe7b5144a3db3ad5098e0a694e`.
 Runtime 10 then passed in-game validation of Sprite raising.
+
+The 0.2.9 installer then upgraded that live 0.2.8 installation in place:
+
+- `status` identified runtime 10 as the reviewed 0.2.8 upgrade source.
+- `apply` installed runtime 11 without changing either executable or any
+  image resource.
+- `status` reported the Nyx Sprite/other Conflux Pixie defaults, all sixteen
+  Spiritism records, and all resources complete.
+- The installer created rollback backup
+  `ConfluxSpiritismPatch/backups/20260819-203846`.
+
+The backup runtime matches the 0.2.8 hash, while the installed and packaged
+runtime 11 DLLs both match
+`67c071790536f4186df0b348f59a7ce06b176168442d56454be7e96dde8507fd`.
+Runtime 11 then launched with every hook installed; creature-result validation
+still requires battles with both Nyx and another Conflux hero.
 
 ## Files Changed By Apply
 

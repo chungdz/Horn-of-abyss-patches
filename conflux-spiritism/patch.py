@@ -15,7 +15,7 @@ HERO_RECORD_STRIDE = 0x5C
 FIRST_SKILL_TYPE_OFFSET = 0x27CBDC
 NECROMANCY = 12
 EMPTY_SKILL = 0xFFFFFFFF
-RUNTIME_LOG_MARKER = "Conflux Spiritism runtime 10"
+RUNTIME_LOG_MARKER = "Conflux Spiritism runtime 11"
 
 HEROES = (
     (128, "Pasis", 22, 1, 20, 1),
@@ -100,6 +100,9 @@ CONFLUX_026_RUNTIME_HASH = (
 )
 CONFLUX_027_RUNTIME_HASH = (
     "938d53c27c298a4d856bef7d793724858a3fdcf262aff1a00cb1fd3488473a7a"
+)
+CONFLUX_028_RUNTIME_HASH = (
+    "6e1c82e0ba5100505bddb55a4f0089694a1ee9fe7b5144a3db3ad5098e0a694e"
 )
 SMALL_RESOURCE_HASH = (
     "ba4ba357d2859b8e5dc8077bce00b1effc0a40b42fb25fa9f53ed76dd0d85eb3"
@@ -488,6 +491,8 @@ def collect_status(game_dir):
         if runtime_hash == CONFLUX_026_RUNTIME_HASH
         else "conflux-spiritism-0.2.7"
         if runtime_hash == CONFLUX_027_RUNTIME_HASH
+        else "conflux-spiritism-0.2.8"
+        if runtime_hash == CONFLUX_028_RUNTIME_HASH
         else "nyx-spiritism"
         if runtime_hash == NYX_RUNTIME_HASH
         else "nyx-spiritism-0.1.5"
@@ -530,6 +535,7 @@ def skill_name(skill_id):
 def print_status(status):
     print("Conflux Spiritism status")
     print("  Conflux base rates: 10% / 20% / 30%")
+    print("  target defaults: Nyx Sprite (119), others Pixie (118)")
     for executable, state in status["executables"].items():
         heroes = status["heroes"].get(executable, {})
         spiritists = sum(
@@ -621,6 +627,7 @@ def validate_prerequisite(game_dir, status):
             "conflux-spiritism-0.2.5",
             "conflux-spiritism-0.2.6",
             "conflux-spiritism-0.2.7",
+            "conflux-spiritism-0.2.8",
         ):
             raise RuntimeError(
                 "The installed Conflux runtime is not a reviewed upgrade source."

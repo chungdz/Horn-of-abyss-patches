@@ -227,18 +227,21 @@ static const char spiritism_name[] = "Spiritism";
 static const char basic_spiritism_description[] =
   "{Basic Spiritism}\n\n"
   "After combat, 10% of the health of slain living creatures is summoned "
-  "as Sprites. With the Cloak of the Undead King, Fire Elementals are "
-  "summoned instead. Buildings and artifacts add their normal bonuses.";
+  "as Pixies, or Sprites for Nyx. With the Cloak of the Undead King, Fire "
+  "Elementals are summoned instead. Buildings and artifacts add their "
+  "normal bonuses.";
 static const char advanced_spiritism_description[] =
   "{Advanced Spiritism}\n\n"
   "After combat, 20% of the health of slain living creatures is summoned "
-  "as Sprites. With the Cloak of the Undead King, Earth Elementals are "
-  "summoned instead. Buildings and artifacts add their normal bonuses.";
+  "as Pixies, or Sprites for Nyx. With the Cloak of the Undead King, Earth "
+  "Elementals are summoned instead. Buildings and artifacts add their "
+  "normal bonuses.";
 static const char expert_spiritism_description[] =
   "{Expert Spiritism}\n\n"
   "After combat, 30% of the health of slain living creatures is summoned "
-  "as Sprites. With the Cloak of the Undead King, Psychic Elementals are "
-  "summoned instead. Buildings and artifacts add their normal bonuses.";
+  "as Pixies, or Sprites for Nyx. With the Cloak of the Undead King, Psychic "
+  "Elementals are summoned instead. Buildings and artifacts add their "
+  "normal bonuses.";
 #endif
 static const SecondarySkillText spiritism_text = {
   spiritism_name,
@@ -1050,6 +1053,7 @@ static int __thiscall direct_get_necromancy_creature(void *hero) {
   int native_creature = chained_get_necromancy_creature(hero);
 
   if (is_spiritist_hero(hero)) {
+    DWORD hero_id = 0;
     set_spiritism_message(TRUE);
     switch (native_creature) {
       case CREATURE_ID_WALKING_DEAD:
@@ -1059,7 +1063,10 @@ static int __thiscall direct_get_necromancy_creature(void *hero) {
       case CREATURE_ID_LICH:
         return CREATURE_ID_PSYCHIC_ELEMENTAL;
       default:
-        return CREATURE_ID_SPRITE;
+        return
+          read_hero_id(hero, &hero_id) && hero_id == HERO_ID_NYX
+            ? CREATURE_ID_SPRITE
+            : CREATURE_ID_PIXIE;
     }
   }
   set_spiritism_message(FALSE);
@@ -1886,14 +1893,14 @@ static DWORD WINAPI patch_thread(LPVOID) {
   BOOL vehr_frame_available;
   BOOL hooks_installed;
 
-  append_text("Conflux Spiritism runtime 10\r\n");
+  append_text("Conflux Spiritism runtime 11\r\n");
 #ifdef CHINESE_HOTA_R10
   append_text(
     "heroes=128-143 creature=118 cloak=114/113/120 "
     "rates=10/20/30 underlying-skill=12\r\n");
 #else
   append_text(
-    "heroes=128-143 creature=119 cloak=114/113/120 "
+    "heroes=128-143 creature=118 nyx=119 cloak=114/113/120 "
     "rates=10/20/30 underlying-skill=12\r\n");
 #endif
   write_log();

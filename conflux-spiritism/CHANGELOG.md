@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.9 - 2026-08-20
+
+- Limited default Sprite `119` raising to Nyx.
+- Restored default Pixie `118` raising for the other fifteen Conflux heroes.
+- Updated all three English Spiritism descriptions to explain the Nyx
+  exception.
+- Preserved the 10%/20%/30% rates and the existing Cloak mapping to Fire,
+  Earth, and Psychic Elementals for every Conflux Spiritist.
+- Left ordinary Necromancy and the unresolved Chinese Pixie-only runtime
+  unchanged.
+- Advanced the packaged runtime marker to runtime 11.
+- Added guarded in-place upgrade support for the reviewed 0.2.8 runtime.
+- Confirmed runtime 11 installs every gameplay and UI hook on launch.
+
 ## 0.2.8 - 2026-08-20
 
 - Changed the default English Spiritism result creature from Pixie `118` to
