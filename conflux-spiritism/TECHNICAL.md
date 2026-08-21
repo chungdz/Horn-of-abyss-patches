@@ -4,7 +4,7 @@
 
 - Game: Horn of the Abyss 1.8.0
 - HD Mod: 5.6 R16
-- Patch version: 0.3.5 transfer-icon candidate
+- Patch version: 0.3.6
 - Prerequisite: Nyx Spiritism 0.1.5/0.1.6 or Conflux Spiritism
   0.1.0/0.2.0/0.2.1/0.2.2/0.2.3/0.2.4/0.2.5/0.2.6/0.2.7/0.2.8/0.2.9/0.3.0/0.3.1/0.3.2
 - Conflux hero IDs: `128` through `143`
@@ -17,18 +17,19 @@
 
 ## Live Installed State
 
-The transfer-icon-only candidate uses runtime 18 with SHA-256
-`088b48db3b9d5339059ecb51b4fcdde89f2d7d084d4a9a1a877b6ea9778ca251`.
+The installed release uses runtime 19 with SHA-256
+`c6fa88be84b1531747433794210570514a6983ea83ee6878f3922ca3b06f674c`.
 `patch.py status` reports both executables complete, all sixteen hero records
 as Spiritism, all three custom skill resources registered, and truncated
-specialty overrides removed. Runtime 18 installs no exchange event or
+specialty overrides removed. Runtime 19 installs no exchange event-entry or
 Hermit's Shack hook and does not resize or redirect any loaded
-secondary-skill group.
+secondary-skill group. Its two right-click hooks target only the skill-ID call
+and the native popup-builder call.
 
-After installing the collision-free transfer atlas, ten consecutive normal
-startup and clean-close cycles completed without changing `HD_CRASH_LOG.txt`.
-Every launch reported the 32x32 exchange resource pair ready and all native
-secondary-skill groups unchanged.
+After installing runtime 19, five consecutive normal startup and clean-close
+cycles completed without changing `HD_CRASH_LOG.txt`. In-game testing
+confirmed both the persistent 32x32 transfer icon and the Spiritism
+right-click popup. The log recorded five native-loader popup activations.
 
 Active image resources:
 
@@ -38,7 +39,7 @@ Active image resources:
 - `IX32.def`: 32x32 Nyx specialty frames, scoped to supported exchanges
 - `IX44.def`: 44x44 Nyx specialty frames, scoped to hero dialogs
 
-The `IX` resources are loaded as independent DEFs. Runtime 17 does not replace
+The `IX` resources are loaded as independent DEFs. Runtime 19 does not replace
 a frame pointer or pixel buffer in HotA's shared specialty atlases.
 
 ## Executable Records
@@ -99,6 +100,8 @@ behavior and adds a Conflux-only power hook.
 | `0x004E1A70` | Standard hero dialog | Scope the Spiritism text and resource aliases |
 | `0x004DA990` | Hero level-up processing | Scope the Spiritism text and resource aliases |
 | `0x005AAD90` | HD SwapMgr dialog builder | Give each eligible skill control an immutable per-side `SPIR32.def` or native DEF operand during construction |
+| `0x005B0342` | Transfer secondary-skill ID call | Record a one-shot Spiritism mastery only for underlying skill ID `12` on an eligible hero |
+| `0x005B0863` | Transfer detail-popup call | Pass the Spiritism description and temporarily select `SPIR82.def` while the native popup loader constructs and converts the image |
 | `HotA.dll+0x2E5D` | Hero inspection handler 1 | Guard the current-hero pointer before dereferencing offset `0x1A` |
 | `HotA.dll+0x3F2D` | Hero inspection handler 2 | Guard the duplicate current-hero dereference used while switching heroes |
 
@@ -223,32 +226,36 @@ the hero's internal Necromancy level to be nonzero. This affects:
 - 32x32, 44x44, and 82x93 custom icons
 - Spiritism post-battle result wording
 
-Runtime 18 does not modify a specialty atlas, frame object, or pixel buffer.
+Runtime 19 does not modify a specialty atlas, frame object, or pixel buffer.
 For Nyx's standard hero dialog it temporarily
 changes the `un44.def` resource literal at `0x00679D90` to `IX44.def`. For
 the HD pregame panel it scopes the equivalent literal at
 `HD_HOTA.dll+0x2A043C`.
 
 HD Mod replaces the original SwapMgr builder at `0x005AAD90` with a
-thiscall-compatible relative jump. Runtime 18 chains that live target and
+thiscall-compatible relative jump. Runtime 19 chains that live target and
 uses the builder's existing `H3Hero*[2]` argument to select each side:
 
 - `HD_HOTA.dll+0x297650`: `secsk32.def` to `SPIR32.def`
 - `HD_HOTA.dll+0x2975F0`: `un32.def` to `IX32.def`
 
 The two reviewed HD layouts contain 16 `push secsk32.def` operands for control
-IDs `200-215`. During builder execution, runtime 18 changes only the operand
+IDs `200-215`. During builder execution, runtime 19 changes only the operand
 for each slot whose actual skill ID is `12` on a Spiritist hero, then
 immediately restores every instruction. The native control constructor loads
 the selected `SPIR32.def` and stores the loaded object at control offset
 `0x30`.
 Subsequent transfer refreshes change frames and state but retain that object,
-so no global alias remains active. Nyx's specialty alias remains separately
-scoped to initial construction.
+so no global alias remains active. For right-click, runtime 19 identifies the
+clicked skill at `0x005B0342`, then temporarily changes the 12-byte
+`secsk82.def` literal while the native popup call at `0x005B0863` runs. HotA
+therefore loads and converts `SPIR82.def` through its normal resource path.
+The literal is restored before the wrapper returns. Nyx's specialty alias
+remains separately scoped to initial construction.
 
 The withdrawn Hermit's Shack analysis found the active hero at context offset
 `0x0C`, the selected skill at `0x18`, and a phase byte at offset `0x00`.
-Runtime 18 does not hook that callback.
+Runtime 19 does not hook that callback.
 
 The original Inteus/Nyx runtime trace proved that the fixed-scenario selector
 does not call the expected image constructor at `0x004EA800`; it reuses an
@@ -377,7 +384,7 @@ _HD3_Data/Common/ConfluxSpiritism.log
 Its success log begins with:
 
 ```text
-Conflux Spiritism runtime 18 transfer-icon-only
+Conflux Spiritism runtime 19 transfer-right-click
 heroes=128-143 creature=118 nyx=119 cloak=114/113/120 rates=10/20/30 underlying-skill=12
 ```
 
@@ -389,7 +396,7 @@ scoped Nyx specialty aliases=ready
 HD exchange skill literal=ready
 exchange control pointer sites=ready
 HD exchange dialog hook=installed
-HD exchange skill event hook=disabled for icon-only candidate
+HD exchange skill right-click call hooks=installed
 Hermit skill upgrade hook=disabled for transfer-only candidate
 specialty atlas mutation=disabled
 extended specialty Vehr frame=available
@@ -397,9 +404,9 @@ small skill frame overlay=ready; native group unchanged
 large skill frame overlay=ready; native group unchanged
 exchange skill resource pair=ready; native group unchanged
 secondary skill group mutation=disabled
-exchange right-click scope=disabled
+exchange right-click scope=native popup loader filename only
 Hermit scope=disabled
-final=transfer-icon-only hooks installed; native HotA groups unchanged
+final=transfer icon+right-click hooks installed; native HotA groups unchanged
 ```
 
 ## Shared Resources
@@ -665,8 +672,9 @@ Runtimes 14 and 15 were withdrawn after reproducing HotA resource-copy
 corruption on later launches. Runtime 16 was also withdrawn after the
 2026-08-20 17:18 crash reproduced the same resource-state failure class at
 `HotA.dll+0x205E34`. Runtime 17 fixed the persistent 32x32 transfer icon but
-its right-click frame overlay crashed at `HotA.dll+0x7978A`. Runtime 18 keeps
-only the confirmed transfer icon path.
+its right-click frame overlay crashed at `HotA.dll+0x7978A`. Runtime 18 kept
+only the confirmed transfer icon path. Runtime 19 adds the confirmed
+right-click popup through HotA's native filename-loading and conversion path.
 
 ## Files Changed By Apply
 

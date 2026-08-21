@@ -4,10 +4,9 @@
 
 - Game: Horn of the Abyss 1.8.0
 - HD Mod: 5.6 R16
-- Patch version: 0.1.14 transfer-icon candidate
+- Patch version: 0.1.15
 - Runtime marker: `Pixie Transformer runtime 7`
-- Prerequisite: Conflux Spiritism 0.2.9 through the 0.3.5 transfer-icon
-  candidate
+- Prerequisite: Conflux Spiritism 0.2.9 through 0.3.6
 - Town: Conflux, ID `8`
 - Garden controls and built bits: Horde 1 IDs `18` and `19`
 - Actual Magic Lantern dwelling controls: IDs `30` and `37`
@@ -39,13 +38,13 @@ Reviewed prerequisite hashes:
 
 ## Live Installed State
 
-The live game retains the Pixie Transformer loader and uses the
-transfer-icon-only Spiritism runtime 18 companion:
+The live game retains the Pixie Transformer loader and uses the confirmed
+Spiritism runtime 19 companion:
 
 - Pixie Transformer `setseed.dll`:
   `418103cc28826cda225439b6594b2ccb9c85176697d79a142bb9a0dbf47f2509`
 - Spiritism companion:
-  `088b48db3b9d5339059ecb51b4fcdde89f2d7d084d4a9a1a877b6ea9778ca251`
+  `c6fa88be84b1531747433794210570514a6983ea83ee6878f3922ca3b06f674c`
 - Pixie/Firebird `Data/BldgSpec.txt`:
   `1c131975c28d7153b67de695cdbc97662681f90ed329d1986831d06a3026ed3d`
 - Pixie/Firebird `Data/HotA_lng.lod`:
@@ -53,9 +52,10 @@ transfer-icon-only Spiritism runtime 18 companion:
 - Reviewed executables and `HotA.dll`
 - Collision-free `SPIR32.def`:
   `22e030b0bef348c5afa682d693f14cbe3e7886b9dfa01b319b33eb323d3290a8`
-- Exchange right-click and Hermit's Shack hooks disabled for separate later
-  validation
-- Runtime 18 normal startup and clean close without a new crash
+- Transfer icon and right-click popup confirmed in game
+- Hermit's Shack hook disabled for separate later validation
+- Runtime 19 passed five normal startup and clean-close cycles without a new
+  crash
 
 Backup `PixieTransformerPatch/backups/20260820-162535` contains the exact
 prior 0.1.9 plus Spiritism 0.3.1 composition.
@@ -368,6 +368,8 @@ Completed:
   scope
 - Runtime 17 transfer icon confirmation and right-click crash reproduction
 - Runtime 18 icon-only startup with exchange event and Hermit hooks disabled
+- Runtime 19 five-launch validation and confirmed Spiritism transfer
+  right-click popup
 
 Pending:
 

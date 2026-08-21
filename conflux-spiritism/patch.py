@@ -15,7 +15,7 @@ HERO_RECORD_STRIDE = 0x5C
 FIRST_SKILL_TYPE_OFFSET = 0x27CBDC
 NECROMANCY = 12
 EMPTY_SKILL = 0xFFFFFFFF
-RUNTIME_LOG_MARKER = "Conflux Spiritism runtime 18 transfer-icon-only"
+RUNTIME_LOG_MARKER = "Conflux Spiritism runtime 19 transfer-right-click"
 
 HEROES = (
     (128, "Pasis", 22, 1, 20, 1),
@@ -127,6 +127,9 @@ CONFLUX_034_RC1_RUNTIME_HASH = (
 )
 CONFLUX_034_RUNTIME_HASH = (
     "a65f61a8bc2ee20af7861d8b65ee61f26409dc95b9e1e9a6aaabeefd94eb780b"
+)
+CONFLUX_035_RUNTIME_HASH = (
+    "088b48db3b9d5339059ecb51b4fcdde89f2d7d084d4a9a1a877b6ea9778ca251"
 )
 SMALL_RESOURCE_HASH = (
     "ba4ba357d2859b8e5dc8077bce00b1effc0a40b42fb25fa9f53ed76dd0d85eb3"
@@ -454,7 +457,7 @@ def last_launch_state(game_dir):
         and "HD hero selection hook=installed" in log
         and "HD exchange dialog hook=installed" in log
         and (
-            "HD exchange skill event hook=disabled for icon-only candidate"
+            "HD exchange skill right-click call hooks=installed"
             in log
         )
         and (
@@ -469,7 +472,7 @@ def last_launch_state(game_dir):
         and "extended specialty Vehr frame=available" in log
         and (
             "hook backend=relative chaining; "
-            "no exchange event or Hermit entry hook"
+            "no exchange event entry or Hermit hook"
             in log
         )
         and (
@@ -485,10 +488,14 @@ def last_launch_state(game_dir):
             in log
         )
         and "secondary skill group mutation=disabled" in log
-        and "exchange right-click scope=disabled" in log
+        and (
+            "exchange right-click scope="
+            "native popup loader filename only"
+            in log
+        )
         and "Hermit scope=disabled" in log
         and (
-            "final=transfer-icon-only hooks installed; "
+            "final=transfer icon+right-click hooks installed; "
             "native HotA groups unchanged"
             in log
         )
@@ -567,6 +574,8 @@ def collect_status(game_dir):
             if runtime_hash == CONFLUX_034_RC1_RUNTIME_HASH
             else "conflux-spiritism-0.3.4-transfer-withdrawn"
             if runtime_hash == CONFLUX_034_RUNTIME_HASH
+            else "conflux-spiritism-0.3.5-transfer-icon"
+            if runtime_hash == CONFLUX_035_RUNTIME_HASH
             else "nyx-spiritism"
             if runtime_hash == NYX_RUNTIME_HASH
             else "nyx-spiritism-0.1.5"
@@ -727,6 +736,7 @@ def validate_prerequisite(game_dir, status):
             "conflux-spiritism-0.3.3-withdrawn",
             "conflux-spiritism-0.3.4-transfer-rc1",
             "conflux-spiritism-0.3.4-transfer-withdrawn",
+            "conflux-spiritism-0.3.5-transfer-icon",
         ):
             raise RuntimeError(
                 "The installed Conflux runtime is not a reviewed upgrade source."

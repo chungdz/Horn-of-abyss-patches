@@ -1,6 +1,6 @@
 # Pixie Transformer
 
-Version 0.1.14 transfer-icon candidate
+Version 0.1.15
 
 This HotA 1.8.0 overlay replaces the Conflux Garden of Life with a Pixie
 Transformer:
@@ -16,9 +16,8 @@ Transformer:
 - Stack counts are preserved.
 - The Garden's former `+10` weekly Pixie/Sprite growth bonus is removed.
 - The Necropolis Skeleton Transformer remains unchanged.
-- Conflux Spiritism 0.3.5 transfer-icon candidate remains active. This stage
-  fixes the transfer icon while intentionally leaving exchange right-click
-  and Hermit's Shack hooks disabled.
+- Conflux Spiritism 0.3.6 remains active. The transfer icon and right-click
+  popup are confirmed; Hermit's Shack remains disabled.
 
 The town building keeps its original `Garden of Life` name. The patch changes
 only the two Garden descriptions to:
@@ -36,7 +35,7 @@ titled `Pixie Transformer`.
 ## Prerequisite
 
 Install and validate
-[Conflux Spiritism 0.2.9 through the 0.3.5 transfer-icon candidate](../conflux-spiritism/README.md)
+[Conflux Spiritism 0.2.9 through 0.3.6](../conflux-spiritism/README.md)
 first.
 The installer requires the exact reviewed hashes for:
 
@@ -96,9 +95,9 @@ python3 patch.py restore --game-dir "../.." \
 1. Launch `h3hota HD.exe`.
 2. Confirm `_HD3_Data/Common/PixieTransformer.log` ends with
    `final=Pixie Transformer installed`.
-3. Confirm `_HD3_Data/Common/ConfluxSpiritism.log` reports runtime 18,
-   the exchange resource pair ready, and both right-click and Hermit scopes
-   disabled.
+3. Confirm `_HD3_Data/Common/ConfluxSpiritism.log` reports runtime 19,
+   the exchange resource pair ready, right-click call hooks installed, and
+   the Hermit scope disabled.
 4. Confirm a real Magic Lantern still opens its normal Pixie/Sprite
    recruitment window.
 5. Build either Garden variant and confirm its name remains Garden of Life.
@@ -117,8 +116,8 @@ python3 patch.py restore --game-dir "../.." \
 13. Open a Necropolis Skeleton Transformer and confirm it still produces
     Skeletons or Bone Dragons normally.
 14. Transfer something between two Conflux Spiritists and confirm the
-    Spiritism exchange icon persists; right-click it and confirm the native
-    Necromancy popup opens without crashing.
+    Spiritism exchange icon persists; right-click it and confirm the
+    Spiritism name and large image.
 15. Confirm Hermit's Shack remains on its native Necromancy display.
 16. Win battles with Nyx and another Conflux Spiritist and confirm the
     Spiritism 0.3.3 Sprite/Pixie split is unchanged.
@@ -131,7 +130,7 @@ Bone Dragon-class-to-Firebird results are validated in game.
 
 ## Installed State
 
-Version 0.1.14 is installed in the live game directory. Static status reports
+Version 0.1.15 is installed in the live game directory. Static status reports
 the overlay runtime, Spiritism companion, reviewed executables, `HotA.dll`,
 Pixie/Firebird building text, and patched language archive complete. The
 pre-upgrade 0.1.9 plus Spiritism 0.3.1 state is saved under:

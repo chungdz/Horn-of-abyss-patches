@@ -2,6 +2,15 @@
 
 ## Unreleased - 2026-08-21
 
+- Added runtime 19 with two narrow transfer right-click call-site hooks.
+  The clicked skill is identified at `0x005B0342`; the popup call at
+  `0x005B0863` temporarily changes only the `secsk82.def` filename and
+  message pointer while HotA's native loader converts `SPIR82.def`.
+- Confirmed the persistent transfer icon and Spiritism right-click name and
+  large image in game. The runtime log recorded five successful
+  `Spiritism native-loader scope` activations.
+- Completed five consecutive normal launches without changing the latest
+  crash log. Hermit's Shack remains disabled for separate validation.
 - Confirmed in game that runtime 17 preserves the 32x32 Spiritism icon after
   opening the hero-transfer dialog.
 - Withdrew runtime 17's right-click scope after it crashed at

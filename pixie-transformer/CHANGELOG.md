@@ -2,6 +2,9 @@
 
 ## Unreleased - 2026-08-21
 
+- Upgraded the companion to Conflux Spiritism 0.3.6 runtime 19.
+- Confirmed the persistent transfer icon and Spiritism right-click popup in
+  game after five clean startup cycles. Hermit's Shack remains disabled.
 - Withdrew the runtime 17 right-click event scope after it crashed at
   `HotA.dll+0x7978A` by passing a raw large Spiritism frame to HotA's
   converted renderer.

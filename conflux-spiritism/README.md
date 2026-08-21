@@ -1,6 +1,6 @@
 # Conflux Spiritism
 
-Version 0.3.5 transfer-icon candidate
+Version 0.3.6
 
 This HotA 1.8.0 upgrade gives every Conflux hero Spiritism in the first
 secondary-skill slot. It builds on the reviewed
@@ -75,12 +75,17 @@ The transfer atlas uses unique internal names `SP32BAS.PCX`,
 resource cache to return the already loaded 44x44 frame objects even though
 the transfer file itself contained valid 32x32 data.
 
+Version 0.3.6 adds transfer right-click through two narrow native call sites.
+Runtime 19 records the clicked Spiritism slot, then lets the game's popup
+builder load and convert `SPIR82.def` by filename. It does not insert raw
+frames into HotA's converted renderer and keeps Hermit's Shack disabled.
+
 ## Installed State
 
 Installed release state:
 
-- Runtime 18 transfer-icon candidate, SHA-256
-  `088b48db3b9d5339059ecb51b4fcdde89f2d7d084d4a9a1a877b6ea9778ca251`
+- Runtime 19, SHA-256
+  `c6fa88be84b1531747433794210570514a6983ea83ee6878f3922ca3b06f674c`
 - Spiritism for all sixteen Conflux heroes
 - Conflux-only 10%/20%/30% rates
 - Sprite raising for Nyx and Pixie raising for other Conflux heroes
@@ -92,9 +97,9 @@ Installed release state:
 - Null guards for both HotA hero-inspection handlers
 
 The guarded installer and static machine-code checks pass in the live Pixie
-Transformer composition. The 32x32 transfer icon is confirmed in game.
-Transfer right-click and Hermit's Shack remain native Necromancy for this
-stage.
+Transformer composition. The persistent 32x32 transfer icon and Spiritism
+right-click popup are confirmed in game. Hermit's Shack remains native
+Necromancy for this stage.
 
 Removed or disabled:
 
@@ -102,7 +107,7 @@ Removed or disabled:
 - Runtime specialty frame-pointer replacement
 - Runtime specialty pixel-buffer replacement
 
-`IX32.def` and `IX44.def` remain separate resources. Runtime 18 references
+`IX32.def` and `IX44.def` remain separate resources. Runtime 19 references
 them only while constructing a Nyx-specific dialog; it never copies their
 frames or pixels into HotA's loaded `UN32.def` or `UN44.def` objects.
 
@@ -244,7 +249,7 @@ python3 patch.py restore --game-dir "../.." \
     the creature/artifact exchange dialog.
 12. Transfer a creature or artifact and confirm the Spiritism icon remains
     after the exchange controls refresh. Right-click Spiritism and confirm
-    the native Necromancy popup opens without crashing.
+    its Spiritism name and 82x93 icon.
 13. Visit a Hermit's Shack and confirm its still-native Necromancy display
     does not affect the transfer icon.
 14. Confirm Akka and HotA-added heroes retain their native specialty images.
@@ -289,8 +294,7 @@ Existing heroes in saved games retain the skills serialized in those saves.
 - The Ring of Oblivion suppresses Spiritism exactly as it suppresses ordinary
   Necromancy. Because equipment is serialized, closing and reopening the game
   does not remove this effect; move the Ring to the backpack or unequip it.
-- Transfer right-click and Hermit's Shack still use the native Necromancy
-  name and large icon.
+- Hermit's Shack still uses the native Necromancy name and large icon.
 - The exchange dialog keeps Nyx's native specialty image when the other hero
   has ID 156 or later. This prevents the 156-frame `IX32.def` resource from
   replacing HotA's extended specialty atlas.

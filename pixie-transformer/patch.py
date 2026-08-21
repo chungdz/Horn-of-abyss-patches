@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 
 
-VERSION = "0.1.14"
+VERSION = "0.1.15"
 RUNTIME_LOG_MARKER = "Pixie Transformer runtime 7"
 ORIGINAL_LANGUAGE_ARCHIVE_HASH = (
     "748b54cfac02ffc795f4b0c48c7cf6ef41ea0a6020f3cf41766271bd12eb81e9"
@@ -55,8 +55,11 @@ CONFLUX_SPIRITISM_034_RC1_RUNTIME_HASH = (
 CONFLUX_SPIRITISM_034_RUNTIME_HASH = (
     "a65f61a8bc2ee20af7861d8b65ee61f26409dc95b9e1e9a6aaabeefd94eb780b"
 )
-CONFLUX_SPIRITISM_RUNTIME_HASH = (
+CONFLUX_SPIRITISM_035_RUNTIME_HASH = (
     "088b48db3b9d5339059ecb51b4fcdde89f2d7d084d4a9a1a877b6ea9778ca251"
+)
+CONFLUX_SPIRITISM_RUNTIME_HASH = (
+    "c6fa88be84b1531747433794210570514a6983ea83ee6878f3922ca3b06f674c"
 )
 PIXIE_TRANSFORMER_010_RUNTIME_HASH = (
     "8956f877bf50ea63338230e956438bc8a8f8c15ea2ee5ad64a91690ea6b22b6f"
@@ -340,8 +343,10 @@ def collect_status(game_dir):
             if runtime_hash == PIXIE_TRANSFORMER_011_RUNTIME_HASH
             else "pixie-transformer-0.1.0"
             if runtime_hash == PIXIE_TRANSFORMER_010_RUNTIME_HASH
-            else "conflux-spiritism-0.3.5-transfer-icon"
+            else "conflux-spiritism-0.3.6-right-click"
             if runtime_hash == CONFLUX_SPIRITISM_RUNTIME_HASH
+            else "conflux-spiritism-0.3.5-transfer-icon"
+            if runtime_hash == CONFLUX_SPIRITISM_035_RUNTIME_HASH
             else "conflux-spiritism-0.3.4-transfer-withdrawn"
             if runtime_hash == CONFLUX_SPIRITISM_034_RUNTIME_HASH
             else "conflux-spiritism-0.3.3"
@@ -363,8 +368,10 @@ def collect_status(game_dir):
             else "unknown"
         ),
         "spiritism_companion": (
-            "conflux-spiritism-0.3.5-transfer-icon"
+            "conflux-spiritism-0.3.6-right-click"
             if companion_hash == CONFLUX_SPIRITISM_RUNTIME_HASH
+            else "conflux-spiritism-0.3.5-transfer-icon"
+            if companion_hash == CONFLUX_SPIRITISM_035_RUNTIME_HASH
             else "conflux-spiritism-0.3.4-transfer-withdrawn"
             if companion_hash == CONFLUX_SPIRITISM_034_RUNTIME_HASH
             else "conflux-spiritism-0.3.3"
@@ -422,7 +429,7 @@ def fully_applied(status):
         )
         and status["runtime"] == "pixie-transformer"
         and status["spiritism_companion"]
-        == "conflux-spiritism-0.3.5-transfer-icon"
+        == "conflux-spiritism-0.3.6-right-click"
         and status["building_text"] == "garden-description"
         and status["language_archive"] == "garden-description"
     )
@@ -579,6 +586,7 @@ def validate_prerequisite(status):
         "conflux-spiritism-0.3.1",
         "conflux-spiritism-0.3.2",
         "conflux-spiritism-0.3.3",
+        "conflux-spiritism-0.3.6-right-click",
         "conflux-spiritism-0.3.5-transfer-icon",
         "conflux-spiritism-0.3.4-transfer-withdrawn",
         "conflux-spiritism-0.3.4-transfer-rc1",
@@ -593,8 +601,8 @@ def validate_prerequisite(status):
     ):
         raise RuntimeError(
             "Install a reviewed Conflux Spiritism release through the "
-            "0.3.5 transfer-icon candidate or Pixie Transformer through "
-            "0.1.14 first."
+            "0.3.6 right-click candidate or Pixie Transformer through "
+            "0.1.15 first."
         )
     raise RuntimeError("The installed Pixie Transformer state is incomplete.")
 

@@ -36,6 +36,11 @@
 #define GET_SECONDARY_SKILL_ID_ADDRESS 0x004E2610
 #define HERO_SECONDARY_SKILL_COUNT_OFFSET 0x101
 #define SWAP_DIALOG_BUILDER_ADDRESS 0x005AAD90
+#ifndef CHINESE_HOTA_R10
+#define SWAP_SKILL_ID_CALL_ADDRESS 0x005B0342
+#define SWAP_SKILL_POPUP_CALL_ADDRESS 0x005B0863
+#define SHOW_POPUP_ADDRESS 0x004F6C00
+#endif
 #define SWAP_SKILL_CONTROL_COUNT 16
 #define SWAP_SKILL_CONTROLS_PER_HERO 8
 #define HD_HOTA_SWAP_LAYOUT_COUNT 2
@@ -81,7 +86,11 @@
 #define LOAD_DEF_ADDRESS 0x0055C9C0
 #define LOG_CAPACITY 32768
 #define CODE_PATCH_CAPACITY 9
+#ifdef CHINESE_HOTA_R10
 #define HOOK_PATCH_COUNT 9
+#else
+#define HOOK_PATCH_COUNT 11
+#endif
 
 struct ResourceItem {
   void *vtable;
@@ -156,6 +165,21 @@ typedef int (__thiscall *GetSecondarySkillId)(void *hero, int slot);
 typedef void *(__thiscall *SwapDialogBuilder)(
   void *dialog,
   void **heroes);
+#ifndef CHINESE_HOTA_R10
+typedef void (__fastcall *ShowSwapSkillPopup)(
+  const char *text,
+  int mode,
+  int first,
+  int second,
+  int type,
+  int frame,
+  int fifth,
+  int sixth,
+  int seventh,
+  int eighth,
+  int ninth,
+  int tenth);
+#endif
 
 struct CodePatch {
   uintptr_t address;
@@ -199,6 +223,11 @@ static ShowHeroDialog chained_show_hero_dialog;
 static LevelUp chained_level_up;
 static HdShowHeroDialog chained_hd_show_hero_dialog;
 static SwapDialogBuilder chained_swap_dialog_builder;
+#ifndef CHINESE_HOTA_R10
+static GetSecondarySkillId chained_swap_get_secondary_skill_id;
+static ShowSwapSkillPopup chained_show_swap_skill_popup;
+static volatile LONG swap_right_click_spiritism_level;
+#endif
 static SkillFrameOverlay small_skill_overlay;
 static SkillFrameOverlay large_skill_overlay;
 static SkillFrameOverlay swap_skill_overlay;
@@ -1480,6 +1509,88 @@ static void *__fastcall direct_swap_dialog_builder(
   return result;
 }
 
+#ifndef CHINESE_HOTA_R10
+static int __fastcall direct_swap_get_secondary_skill_id(
+  void *hero,
+  void *,
+  int slot) {
+  int skill_id = chained_swap_get_secondary_skill_id(hero, slot);
+  LONG spiritism_level = 0;
+
+  if (skill_id == SECONDARY_SKILL_NECROMANCY) {
+    spiritism_level = (LONG)get_spiritism_level(hero);
+  }
+  InterlockedExchange(
+    &swap_right_click_spiritism_level,
+    spiritism_level);
+  return skill_id;
+}
+
+static void __fastcall direct_show_swap_skill_popup(
+  const char *text,
+  int mode,
+  int first,
+  int second,
+  int type,
+  int frame,
+  int fifth,
+  int sixth,
+  int seventh,
+  int eighth,
+  int ninth,
+  int tenth) {
+  LONG spiritism_level = InterlockedExchange(
+    &swap_right_click_spiritism_level,
+    0);
+  char saved_definition[SECONDARY_SKILL_LARGE_DEFINITION_CAPACITY];
+  BOOL definition_applied = FALSE;
+  BOOL spiritism_popup =
+    spiritism_level >= 1 &&
+    spiritism_level <= 3 &&
+    type == 20 &&
+    frame == SPIRITISM_FRAME_FIRST + spiritism_level - 1 &&
+    large_skill_overlay.ready &&
+    apply_definition_alias(
+      SECONDARY_SKILL_LARGE_DEFINITION_ADDRESS,
+      native_large_definition_name,
+      spiritism_large_definition_name,
+      saved_definition,
+      sizeof(saved_definition),
+      &definition_applied);
+  const char *popup_text =
+    spiritism_popup
+      ? spiritism_text.description[spiritism_level - 1]
+      : text;
+
+  chained_show_swap_skill_popup(
+    popup_text,
+    mode,
+    first,
+    second,
+    type,
+    frame,
+    fifth,
+    sixth,
+    seventh,
+    eighth,
+    ninth,
+    tenth);
+  restore_definition_alias(
+    SECONDARY_SKILL_LARGE_DEFINITION_ADDRESS,
+    saved_definition,
+    sizeof(saved_definition),
+    &definition_applied);
+  if (spiritism_level != 0) {
+    append_text("exchange right-click popup=");
+    append_text(
+      spiritism_popup
+        ? "Spiritism native-loader scope\r\n"
+        : "native fallback\r\n");
+    write_log();
+  }
+}
+#endif
+
 static void append_code_bytes(const char *label, uintptr_t address) {
   BYTE bytes[8];
   DWORD index;
@@ -1943,7 +2054,21 @@ static BOOL runtime_targets_ready(
     !get_relative_target(
       SWAP_DIALOG_BUILDER_ADDRESS,
       0xE9,
-      &target)) {
+      &target)
+#ifndef CHINESE_HOTA_R10
+    ||
+    !get_relative_target(
+      SWAP_SKILL_ID_CALL_ADDRESS,
+      0xE8,
+      &target) ||
+    target != GET_SECONDARY_SKILL_ID_ADDRESS ||
+    !get_relative_target(
+      SWAP_SKILL_POPUP_CALL_ADDRESS,
+      0xE8,
+      &target) ||
+    target != SHOW_POPUP_ADDRESS
+#endif
+    ) {
     return FALSE;
   }
   *hota = hota_module;
@@ -1967,8 +2092,13 @@ static BOOL wait_for_runtime_targets(
   uintptr_t *hd_dialog,
   uintptr_t *hd_call_1,
   uintptr_t *hd_call_2) {
+#ifdef CHINESE_HOTA_R10
   BYTE previous[36];
   BYTE current[36];
+#else
+  BYTE previous[46];
+  BYTE current[46];
+#endif
   BOOL have_previous = FALSE;
   DWORD stable_checks = 0;
   DWORD attempt;
@@ -1991,7 +2121,13 @@ static BOOL wait_for_runtime_targets(
       safe_read(LEVEL_UP_ADDRESS, current + 16, 5) &&
       safe_read(*hd_call_1, current + 21, 5) &&
       safe_read(*hd_call_2, current + 26, 5) &&
-      safe_read(SWAP_DIALOG_BUILDER_ADDRESS, current + 31, 5)) {
+      safe_read(SWAP_DIALOG_BUILDER_ADDRESS, current + 31, 5)
+#ifndef CHINESE_HOTA_R10
+      &&
+      safe_read(SWAP_SKILL_ID_CALL_ADDRESS, current + 36, 5) &&
+      safe_read(SWAP_SKILL_POPUP_CALL_ADDRESS, current + 41, 5)
+#endif
+      ) {
       if (
         have_previous &&
         bytes_equal(
@@ -2033,6 +2169,10 @@ static BOOL install_hooks(void) {
   uintptr_t target_hd_1 = 0;
   uintptr_t target_hd_2 = 0;
   uintptr_t target_swap_dialog_builder = 0;
+#ifndef CHINESE_HOTA_R10
+  uintptr_t target_swap_get_secondary_skill_id = 0;
+  uintptr_t target_show_swap_skill_popup = 0;
+#endif
   BOOL prepared;
 
   if (!wait_for_runtime_targets(
@@ -2067,6 +2207,14 @@ static BOOL install_hooks(void) {
   append_code_bytes(
     "live HD exchange dialog builder",
     SWAP_DIALOG_BUILDER_ADDRESS);
+#ifndef CHINESE_HOTA_R10
+  append_code_bytes(
+    "live HD exchange skill-id call",
+    SWAP_SKILL_ID_CALL_ADDRESS);
+  append_code_bytes(
+    "live HD exchange skill-popup call",
+    SWAP_SKILL_POPUP_CALL_ADDRESS);
+#endif
   append_code_bytes(
     "live hero inspection dereference 1",
     (uintptr_t)hota + HOTA_INSPECTION_GUARD_1_SITE_RVA);
@@ -2180,7 +2328,25 @@ static BOOL install_hooks(void) {
       (void *)direct_swap_dialog_builder,
       0,
       &target_swap_dialog_builder,
-      &patches[8]) &&
+      &patches[8])
+#ifndef CHINESE_HOTA_R10
+    &&
+    prepare_relative_patch(
+      SWAP_SKILL_ID_CALL_ADDRESS,
+      0xE8,
+      (void *)direct_swap_get_secondary_skill_id,
+      GET_SECONDARY_SKILL_ID_ADDRESS,
+      &target_swap_get_secondary_skill_id,
+      &patches[9]) &&
+    prepare_relative_patch(
+      SWAP_SKILL_POPUP_CALL_ADDRESS,
+      0xE8,
+      (void *)direct_show_swap_skill_popup,
+      SHOW_POPUP_ADDRESS,
+      &target_show_swap_skill_popup,
+      &patches[10])
+#endif
+    &&
     target_hd_1 == target_hd_2 &&
     validate_secondary_skill_definition() &&
     validate_secondary_skill_large_definition() &&
@@ -2204,6 +2370,12 @@ static BOOL install_hooks(void) {
   chained_hd_show_hero_dialog = (HdShowHeroDialog)target_hd_1;
   chained_swap_dialog_builder =
     (SwapDialogBuilder)target_swap_dialog_builder;
+#ifndef CHINESE_HOTA_R10
+  chained_swap_get_secondary_skill_id =
+    (GetSecondarySkillId)target_swap_get_secondary_skill_id;
+  chained_show_swap_skill_popup =
+    (ShowSwapSkillPopup)target_show_swap_skill_popup;
+#endif
 
   prepared = apply_code_patches(patches, HOOK_PATCH_COUNT);
   append_text("necromancy hook=");
@@ -2218,13 +2390,18 @@ static BOOL install_hooks(void) {
   append_text(prepared ? "installed\r\n" : "failed\r\n");
   append_text("HD exchange dialog hook=");
   append_text(prepared ? "installed\r\n" : "failed\r\n");
+#ifndef CHINESE_HOTA_R10
   append_text(
-    "HD exchange skill event hook=disabled for icon-only candidate\r\n");
+    "HD exchange skill right-click call hooks=");
+  append_text(prepared ? "installed\r\n" : "failed\r\n");
+#else
+  append_text("HD exchange skill right-click call hooks=disabled\r\n");
+#endif
   append_text("Hermit skill upgrade hook=disabled for transfer-only candidate\r\n");
   append_text("hero inspection null guards=");
   append_text(prepared ? "installed\r\n" : "failed\r\n");
   append_text(
-    "hook backend=relative chaining; no exchange event or Hermit entry hook\r\n");
+    "hook backend=relative chaining; no exchange event entry or Hermit hook\r\n");
   return prepared;
 }
 
@@ -2272,7 +2449,7 @@ static DWORD WINAPI patch_thread(LPVOID) {
   BOOL vehr_frame_available;
   BOOL hooks_installed;
 
-  append_text("Conflux Spiritism runtime 18 transfer-icon-only\r\n");
+  append_text("Conflux Spiritism runtime 19 transfer-right-click\r\n");
 #ifdef CHINESE_HOTA_R10
   append_text(
     "heroes=128-143 creature=118 cloak=114/113/120 "
@@ -2322,7 +2499,8 @@ static DWORD WINAPI patch_thread(LPVOID) {
     large_skill_overlay_ready &&
     swap_skill_overlay_ready;
   append_text("secondary skill group mutation=disabled\r\n");
-  append_text("exchange right-click scope=disabled\r\n");
+  append_text(
+    "exchange right-click scope=native popup loader filename only\r\n");
   append_text("Hermit scope=disabled\r\n");
 
   append_text("final=");
@@ -2330,7 +2508,7 @@ static DWORD WINAPI patch_thread(LPVOID) {
     skill_overlays_ready &&
       vehr_frame_available &&
       hooks_installed
-      ? "transfer-icon-only hooks installed; native HotA groups unchanged"
+      ? "transfer icon+right-click hooks installed; native HotA groups unchanged"
       : "one or more runtime operations failed");
   append_text("\r\n");
   write_log();
