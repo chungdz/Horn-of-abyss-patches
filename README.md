@@ -22,5 +22,11 @@ The repository contains patching code, documentation, and the user-supplied
 Nyx portrait. It does not contain Heroes III or Horn of the Abyss executables,
 archives, or extracted game assets.
 
+## Map Analysis
+
+The [human map analysis](map-analysis/README.md) batch-scans 224 bundled
+scenario maps, generates a per-map feature catalog, and summarizes recurring
+human map-design patterns without opening each map in the editor.
+
 These patches are not affiliated with or supported by the Horn of the Abyss
 team. Use a separate game installation and keep automatic updates disabled.
