@@ -15,7 +15,7 @@ HERO_RECORD_STRIDE = 0x5C
 FIRST_SKILL_TYPE_OFFSET = 0x27CBDC
 NECROMANCY = 12
 EMPTY_SKILL = 0xFFFFFFFF
-RUNTIME_LOG_MARKER = "Conflux Spiritism runtime 11"
+RUNTIME_LOG_MARKER = "Conflux Spiritism runtime 18 transfer-icon-only"
 
 HEROES = (
     (128, "Pasis", 22, 1, 20, 1),
@@ -104,6 +104,30 @@ CONFLUX_027_RUNTIME_HASH = (
 CONFLUX_028_RUNTIME_HASH = (
     "6e1c82e0ba5100505bddb55a4f0089694a1ee9fe7b5144a3db3ad5098e0a694e"
 )
+CONFLUX_029_RUNTIME_HASH = (
+    "67c071790536f4186df0b348f59a7ce06b176168442d56454be7e96dde8507fd"
+)
+CONFLUX_030_RUNTIME_HASH = (
+    "0cf45c1ecff979d9d147b9b3484646a0122c6493345febb5c6b96952d21ff41a"
+)
+CONFLUX_031_RUNTIME_HASH = (
+    "dceddce37d411022967deec8f401c5d8bbceb526c0f7e39d83ff6dc37be28a5c"
+)
+CONFLUX_032_RUNTIME_HASH = (
+    "c756333e63ea9cd2c375c7b19b569d5296de054f773b96f739fda82f2ffba1b2"
+)
+CONFLUX_033_RC1_RUNTIME_HASH = (
+    "1ce6ab184321838b5ab58e466e05a092fa9e62a4f6bbc4dbe59e210498902b91"
+)
+CONFLUX_033_RUNTIME_HASH = (
+    "169202d2fcc5981f7dcb814fd4a4a813c67ec0f6c3d72af5eed2932d58a13bb0"
+)
+CONFLUX_034_RC1_RUNTIME_HASH = (
+    "8465c248c841bf6cb22c1774511b6968b5c45214e49b162f5758887e37e84af8"
+)
+CONFLUX_034_RUNTIME_HASH = (
+    "a65f61a8bc2ee20af7861d8b65ee61f26409dc95b9e1e9a6aaabeefd94eb780b"
+)
 SMALL_RESOURCE_HASH = (
     "ba4ba357d2859b8e5dc8077bce00b1effc0a40b42fb25fa9f53ed76dd0d85eb3"
 )
@@ -111,12 +135,16 @@ LARGE_RESOURCE_HASH = (
     "8016d09158fee026bcccc83a5c43dd9d8a4cf6a42db113f8e51e81270b63392f"
 )
 EXCHANGE_RESOURCE_HASH = (
-    "0ab002201dcb81a18c989f0e49e4d37b716ff209dd86ada651f9a51c5078511c"
+    "22e030b0bef348c5afa682d693f14cbe3e7886b9dfa01b319b33eb323d3290a8"
 )
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_GAME_DIR = SCRIPT_DIR.parent.parent
 RUNTIME_ASSET = SCRIPT_DIR / "assets" / "ConfluxSpiritismRuntime.dll"
+RUNTIME_PATH = "_HD3_Data/Common/setseed.dll"
+COMPANION_RUNTIME_PATH = (
+    "_HD3_Data/Common/ConfluxSpiritismRuntime.dll"
+)
 EXCHANGE_RESOURCE_ASSET = SCRIPT_DIR / "assets" / "SPIR32.def"
 CORE_RESOURCE_HASHES = {
     "Data/SPIRIT.def": SMALL_RESOURCE_HASH,
@@ -180,7 +208,8 @@ LEGACY_SPECIALTY_OVERRIDE_HASHES = {
 PATCH_FILES = (
     "h3hota.exe",
     "h3hota HD.exe",
-    "_HD3_Data/Common/setseed.dll",
+    RUNTIME_PATH,
+    COMPANION_RUNTIME_PATH,
     "_HD3_Data/Common/ConfluxSpiritism.log",
     *REGISTRATION_PATHS,
     *LEGACY_SPECIALTY_OVERRIDE_HASHES,
@@ -424,14 +453,43 @@ def last_launch_state(game_dir):
         and "level-up hook=installed" in log
         and "HD hero selection hook=installed" in log
         and "HD exchange dialog hook=installed" in log
+        and (
+            "HD exchange skill event hook=disabled for icon-only candidate"
+            in log
+        )
+        and (
+            "Hermit skill upgrade hook=disabled for transfer-only candidate"
+            in log
+        )
         and "hero inspection null guards=installed" in log
         and "specialty atlas mutation=disabled" in log
         and "scoped Nyx specialty aliases=ready" in log
-        and "scoped exchange Spiritism alias=ready" in log
+        and "HD exchange skill literal=ready" in log
+        and "exchange control pointer sites=ready" in log
         and "extended specialty Vehr frame=available" in log
-        and "hook backend=direct relative chaining" in log
         and (
-            "final=Spiritism and Nyx UI hooks installed; shared atlas untouched"
+            "hook backend=relative chaining; "
+            "no exchange event or Hermit entry hook"
+            in log
+        )
+        and (
+            "small skill frame overlay=ready; native group unchanged"
+            in log
+        )
+        and (
+            "large skill frame overlay=ready; native group unchanged"
+            in log
+        )
+        and (
+            "exchange skill resource pair=ready; native group unchanged"
+            in log
+        )
+        and "secondary skill group mutation=disabled" in log
+        and "exchange right-click scope=disabled" in log
+        and "Hermit scope=disabled" in log
+        and (
+            "final=transfer-icon-only hooks installed; "
+            "native HotA groups unchanged"
             in log
         )
     ):
@@ -469,38 +527,68 @@ def collect_status(game_dir):
         )
         result["heroes"][name] = hero_states(data)
 
-    runtime_hash = path_hash(game_dir / "_HD3_Data/Common/setseed.dll")
-    result["runtime"] = (
-        "conflux-spiritism"
-        if runtime_hash == expected_runtime_hash
-        else "conflux-spiritism-0.1.0"
-        if runtime_hash == CONFLUX_010_RUNTIME_HASH
-        else "conflux-spiritism-0.2.0"
-        if runtime_hash == CONFLUX_020_RUNTIME_HASH
-        else "conflux-spiritism-0.2.1"
-        if runtime_hash == CONFLUX_021_RUNTIME_HASH
-        else "conflux-spiritism-0.2.2"
-        if runtime_hash == CONFLUX_022_RUNTIME_HASH
-        else "conflux-spiritism-0.2.3"
-        if runtime_hash == CONFLUX_023_RUNTIME_HASH
-        else "conflux-spiritism-0.2.4"
-        if runtime_hash == CONFLUX_024_RUNTIME_HASH
-        else "conflux-spiritism-0.2.5"
-        if runtime_hash == CONFLUX_025_RUNTIME_HASH
-        else "conflux-spiritism-0.2.6"
-        if runtime_hash == CONFLUX_026_RUNTIME_HASH
-        else "conflux-spiritism-0.2.7"
-        if runtime_hash == CONFLUX_027_RUNTIME_HASH
-        else "conflux-spiritism-0.2.8"
-        if runtime_hash == CONFLUX_028_RUNTIME_HASH
-        else "nyx-spiritism"
-        if runtime_hash == NYX_RUNTIME_HASH
-        else "nyx-spiritism-0.1.5"
-        if runtime_hash == NYX_015_RUNTIME_HASH
-        else "missing"
-        if runtime_hash is None
-        else "unknown"
+    def classify_runtime(runtime_hash):
+        return (
+            "conflux-spiritism"
+            if runtime_hash == expected_runtime_hash
+            else "conflux-spiritism-0.1.0"
+            if runtime_hash == CONFLUX_010_RUNTIME_HASH
+            else "conflux-spiritism-0.2.0"
+            if runtime_hash == CONFLUX_020_RUNTIME_HASH
+            else "conflux-spiritism-0.2.1"
+            if runtime_hash == CONFLUX_021_RUNTIME_HASH
+            else "conflux-spiritism-0.2.2"
+            if runtime_hash == CONFLUX_022_RUNTIME_HASH
+            else "conflux-spiritism-0.2.3"
+            if runtime_hash == CONFLUX_023_RUNTIME_HASH
+            else "conflux-spiritism-0.2.4"
+            if runtime_hash == CONFLUX_024_RUNTIME_HASH
+            else "conflux-spiritism-0.2.5"
+            if runtime_hash == CONFLUX_025_RUNTIME_HASH
+            else "conflux-spiritism-0.2.6"
+            if runtime_hash == CONFLUX_026_RUNTIME_HASH
+            else "conflux-spiritism-0.2.7"
+            if runtime_hash == CONFLUX_027_RUNTIME_HASH
+            else "conflux-spiritism-0.2.8"
+            if runtime_hash == CONFLUX_028_RUNTIME_HASH
+            else "conflux-spiritism-0.2.9"
+            if runtime_hash == CONFLUX_029_RUNTIME_HASH
+            else "conflux-spiritism-0.3.0"
+            if runtime_hash == CONFLUX_030_RUNTIME_HASH
+            else "conflux-spiritism-0.3.1"
+            if runtime_hash == CONFLUX_031_RUNTIME_HASH
+            else "conflux-spiritism-0.3.2"
+            if runtime_hash == CONFLUX_032_RUNTIME_HASH
+            else "conflux-spiritism-0.3.3-rc1"
+            if runtime_hash == CONFLUX_033_RC1_RUNTIME_HASH
+            else "conflux-spiritism-0.3.3-withdrawn"
+            if runtime_hash == CONFLUX_033_RUNTIME_HASH
+            else "conflux-spiritism-0.3.4-transfer-rc1"
+            if runtime_hash == CONFLUX_034_RC1_RUNTIME_HASH
+            else "conflux-spiritism-0.3.4-transfer-withdrawn"
+            if runtime_hash == CONFLUX_034_RUNTIME_HASH
+            else "nyx-spiritism"
+            if runtime_hash == NYX_RUNTIME_HASH
+            else "nyx-spiritism-0.1.5"
+            if runtime_hash == NYX_015_RUNTIME_HASH
+            else "missing"
+            if runtime_hash is None
+            else "unknown"
+        )
+
+    loader_runtime = classify_runtime(path_hash(game_dir / RUNTIME_PATH))
+    companion_runtime = classify_runtime(
+        path_hash(game_dir / COMPANION_RUNTIME_PATH)
     )
+    if loader_runtime not in ("missing", "unknown"):
+        result["runtime"] = loader_runtime
+        result["runtime_path"] = RUNTIME_PATH
+    elif companion_runtime not in ("missing", "unknown"):
+        result["runtime"] = companion_runtime
+        result["runtime_path"] = COMPANION_RUNTIME_PATH
+    else:
+        result["runtime"] = loader_runtime
+        result["runtime_path"] = RUNTIME_PATH
     return result
 
 
@@ -542,7 +630,10 @@ def print_status(status):
             1 for hero in heroes.values() if hero[0] == "spiritism"
         )
         print(f"  {executable}: {state}, {spiritists}/16 Spiritism")
-    print(f"  runtime DLL: {status['runtime']}")
+    print(
+        f"  runtime DLL: {status['runtime']} "
+        f"({status['runtime_path']})"
+    )
     print(f"  last launch: {status['last_launch']}")
     print(
         "  Spiritism resources: "
@@ -628,6 +719,14 @@ def validate_prerequisite(game_dir, status):
             "conflux-spiritism-0.2.6",
             "conflux-spiritism-0.2.7",
             "conflux-spiritism-0.2.8",
+            "conflux-spiritism-0.2.9",
+            "conflux-spiritism-0.3.0",
+            "conflux-spiritism-0.3.1",
+            "conflux-spiritism-0.3.2",
+            "conflux-spiritism-0.3.3-rc1",
+            "conflux-spiritism-0.3.3-withdrawn",
+            "conflux-spiritism-0.3.4-transfer-rc1",
+            "conflux-spiritism-0.3.4-transfer-withdrawn",
         ):
             raise RuntimeError(
                 "The installed Conflux runtime is not a reviewed upgrade source."
@@ -700,7 +799,9 @@ def apply_patch(game_dir):
                 CONFLUX_EXECUTABLE_HASHES[name],
             )
         )
-    (game_dir / "_HD3_Data/Common/setseed.dll").write_bytes(runtime)
+    runtime_path = game_dir / status["runtime_path"]
+    runtime_path.parent.mkdir(parents=True, exist_ok=True)
+    runtime_path.write_bytes(runtime)
     for relative in EXCHANGE_RESOURCE_PATHS:
         path = game_dir / relative
         path.parent.mkdir(parents=True, exist_ok=True)

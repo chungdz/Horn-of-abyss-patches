@@ -1,5 +1,77 @@
 # Changelog
 
+## Unreleased - 2026-08-21
+
+- Withdrew the runtime 17 right-click event scope after it crashed at
+  `HotA.dll+0x7978A` by passing a raw large Spiritism frame to HotA's
+  converted renderer.
+- Installed runtime 18 as an icon-only companion. The confirmed 32x32
+  transfer icon remains active; exchange right-click and Hermit's Shack hooks
+  are disabled.
+- Confirmed in game that the native transfer right-click popup opens without
+  crashing under runtime 18.
+- Installed the transfer-only Spiritism runtime 17 companion while keeping
+  the Hermit's Shack hook disabled.
+- Rebuilt the Spiritism transfer atlas with unique 32x32 frame names so
+  HotA's resource cache cannot substitute the 44x44 Spiritism objects.
+- Completed ten consecutive normal startup and clean-close cycles without a
+  new crash log.
+- Withdrew the Spiritism runtime 16 companion after a later ordinary launch
+  crashed in HotA's resource loader before any exchange or Hermit scope ran.
+- Restored the live companion to reviewed Spiritism runtime 13.
+- Split the next companion upgrade into transfer-only and Hermit-only
+  validation stages.
+
+## 0.1.12 - 2026-08-20
+
+- Withdrawn because its Conflux Spiritism runtime 16 companion later
+  reproduced resource-loader memory corruption.
+- Upgraded the Conflux Spiritism companion to 0.3.3 runtime 16.
+- Replaced the withdrawn persistent exchange scope with per-side immutable
+  exchange control resources and a selected-control right-click scope.
+- Limited Hermit's Shack aliases to its display phase, but this did not
+  prevent the later runtime 16 resource-loader crash.
+- Added guarded upgrade support from the runtime 15 release candidate while
+  leaving the Pixie/Firebird transformer runtime unchanged.
+
+## 0.1.10 - 2026-08-20
+
+- Withdrawn with Spiritism runtime 14 because of repeat-launch memory
+  corruption.
+- Upgraded the Conflux Spiritism companion to 0.3.2 runtime 14.
+- Kept Spiritism aliases active for the complete exchange-dialog lifetime,
+  including redraws after transfers and right-click details.
+- Corrected Hermit's Shack activation to use Conflux hero ID and selected
+  skill ID `12`.
+- Left the Pixie/Firebird transformer runtime and resources unchanged.
+- Added guarded upgrade support from the live 0.1.9 plus Spiritism 0.3.1
+  composition.
+
+## 0.1.9 - 2026-08-20
+
+- Upgraded the Conflux Spiritism companion to 0.3.1 runtime 13.
+- Preserved Spiritism exchange icons after transfers and in right-click
+  details.
+- Added Spiritism naming and imagery to Hermit's Shack upgrades.
+- Left the Pixie/Firebird transformer runtime and resources unchanged.
+- Added guarded upgrade support from the live 0.1.8 plus Spiritism 0.3.0
+  composition.
+- Verified both hook sets in a live minimized startup and byte-exact restore
+  in an isolated companion fixture.
+- In-game testing showed that the Spiritism refresh/event scopes and Hermit
+  predicate were insufficient; version 0.1.10 supersedes them.
+
+## 0.1.8 - 2026-08-20
+
+- Upgraded the Conflux Spiritism companion to 0.3.0 runtime 12.
+- Preserved HotA's Interference and Runes frames in every Spiritism skill
+  atlas while leaving the Pixie/Firebird transformer runtime unchanged.
+- Added an exact companion asset and checksum instead of copying an older
+  installed Spiritism DLL forward during upgrades.
+- Added guarded upgrade support from the live 0.1.7 plus Spiritism 0.2.9
+  composition.
+- Verified both runtime hook sets in a live minimized startup.
+
 ## 0.1.7 - 2026-08-20
 
 - Recorded the live runtime-6 result: normal classes became Pixies, while all

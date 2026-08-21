@@ -4,9 +4,10 @@
 
 - Game: Horn of the Abyss 1.8.0
 - HD Mod: 5.6 R16
-- Patch version: 0.1.7
+- Patch version: 0.1.14 transfer-icon candidate
 - Runtime marker: `Pixie Transformer runtime 7`
-- Prerequisite: Conflux Spiritism 0.2.9, runtime 11
+- Prerequisite: Conflux Spiritism 0.2.9 through the 0.3.5 transfer-icon
+  candidate
 - Town: Conflux, ID `8`
 - Garden controls and built bits: Horde 1 IDs `18` and `19`
 - Actual Magic Lantern dwelling controls: IDs `30` and `37`
@@ -23,7 +24,11 @@ Reviewed prerequisite hashes:
 | Original `Data/HotA_lng.lod` | `748b54cfac02ffc795f4b0c48c7cf6ef41ea0a6020f3cf41766271bd12eb81e9` |
 | Pixie-only `Data/HotA_lng.lod` | `750a3384ad1bef990ec723154731ca24482e44f7f1f3390330c34c8fc89f162d` |
 | Pixie/Firebird `Data/HotA_lng.lod` | `fff4e987f186673eab7e7b3f875db7a845ef3934448825ad85dff39843c3c9a2` |
-| Spiritism `setseed.dll` | `67c071790536f4186df0b348f59a7ce06b176168442d56454be7e96dde8507fd` |
+| Spiritism 0.3.0 runtime | `0cf45c1ecff979d9d147b9b3484646a0122c6493345febb5c6b96952d21ff41a` |
+| Spiritism 0.3.1 runtime | `dceddce37d411022967deec8f401c5d8bbceb526c0f7e39d83ff6dc37be28a5c` |
+| Spiritism 0.3.2 runtime | `c756333e63ea9cd2c375c7b19b569d5296de054f773b96f739fda82f2ffba1b2` |
+| Spiritism 0.3.3 runtime 15 RC | `1ce6ab184321838b5ab58e466e05a092fa9e62a4f6bbc4dbe59e210498902b91` |
+| Spiritism 0.3.3 runtime 16 | `169202d2fcc5981f7dcb814fd4a4a813c67ec0f6c3d72af5eed2932d58a13bb0` |
 | Pixie Transformer 0.1.0 runtime | `8956f877bf50ea63338230e956438bc8a8f8c15ea2ee5ad64a91690ea6b22b6f` |
 | Pixie Transformer 0.1.1 runtime | `ab7ba9cf873fd60a33c1ac8243591b1407d00b027d8885d808ef10e75e4ed336` |
 | Pixie Transformer 0.1.2 runtime | `e8f2268d696761bb9ddf9a5c0b9fc1dd53f2370d5cb87beb4e863f333e7cafc3` |
@@ -34,22 +39,26 @@ Reviewed prerequisite hashes:
 
 ## Live Installed State
 
-Version 0.1.7 is installed in the live game directory. Static status verifies:
+The live game retains the Pixie Transformer loader and uses the
+transfer-icon-only Spiritism runtime 18 companion:
 
 - Pixie Transformer `setseed.dll`:
   `418103cc28826cda225439b6594b2ccb9c85176697d79a142bb9a0dbf47f2509`
 - Spiritism companion:
-  `67c071790536f4186df0b348f59a7ce06b176168442d56454be7e96dde8507fd`
+  `088b48db3b9d5339059ecb51b4fcdde89f2d7d084d4a9a1a877b6ea9778ca251`
 - Pixie/Firebird `Data/BldgSpec.txt`:
   `1c131975c28d7153b67de695cdbc97662681f90ed329d1986831d06a3026ed3d`
 - Pixie/Firebird `Data/HotA_lng.lod`:
   `fff4e987f186673eab7e7b3f875db7a845ef3934448825ad85dff39843c3c9a2`
 - Reviewed executables and `HotA.dll`
-- Complete static patch state
+- Collision-free `SPIR32.def`:
+  `22e030b0bef348c5afa682d693f14cbe3e7886b9dfa01b319b33eb323d3290a8`
+- Exchange right-click and Hermit's Shack hooks disabled for separate later
+  validation
+- Runtime 18 normal startup and clean close without a new crash
 
-Backup `PixieTransformerPatch/backups/20260820-131832` contains the exact
-prior version 0.1.6 runtime, its failed Firebird test log, Spiritism
-companion, and unchanged Pixie/Firebird resources.
+Backup `PixieTransformerPatch/backups/20260820-162535` contains the exact
+prior 0.1.9 plus Spiritism 0.3.1 composition.
 
 ## Runtime Composition
 
@@ -351,6 +360,14 @@ Completed:
 - Live guarded upgrade to version 0.1.7
 - Runtime 7 normal-class conversion to Pixie in game
 - Runtime 7 native Bone Dragon-class conversion to Firebird in game
+- Exact 0.1.8-to-0.1.9 companion upgrade and byte-exact restore
+- Live 0.1.9 startup with Spiritism runtime 13 builder, refresh, event, and
+  Hermit hooks installed
+- Exact 0.1.9-to-0.1.10 companion upgrade path
+- Spiritism runtime 16 repeated-launch validation and display-only Hermit
+  scope
+- Runtime 17 transfer icon confirmation and right-click crash reproduction
+- Runtime 18 icon-only startup with exchange event and Hermit hooks disabled
 
 Pending:
 

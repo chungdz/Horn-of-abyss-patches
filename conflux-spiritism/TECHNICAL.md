@@ -4,9 +4,9 @@
 
 - Game: Horn of the Abyss 1.8.0
 - HD Mod: 5.6 R16
-- Patch version: 0.2.9
+- Patch version: 0.3.5 transfer-icon candidate
 - Prerequisite: Nyx Spiritism 0.1.5/0.1.6 or Conflux Spiritism
-  0.1.0/0.2.0/0.2.1/0.2.2/0.2.3/0.2.4/0.2.5/0.2.6/0.2.7/0.2.8
+  0.1.0/0.2.0/0.2.1/0.2.2/0.2.3/0.2.4/0.2.5/0.2.6/0.2.7/0.2.8/0.2.9/0.3.0/0.3.1/0.3.2
 - Conflux hero IDs: `128` through `143`
 - Internal secondary skill: Necromancy, ID `12`
 - Raised creature without Cloak: Sprite `119` for Nyx; Pixie `118` for the
@@ -17,13 +17,18 @@
 
 ## Live Installed State
 
-The live installation uses runtime 11 with SHA-256
-`67c071790536f4186df0b348f59a7ce06b176168442d56454be7e96dde8507fd`.
+The transfer-icon-only candidate uses runtime 18 with SHA-256
+`088b48db3b9d5339059ecb51b4fcdde89f2d7d084d4a9a1a877b6ea9778ca251`.
 `patch.py status` reports both executables complete, all sixteen hero records
 as Spiritism, all three custom skill resources registered, and truncated
-specialty overrides removed. The runtime 11 launch log reports every gameplay,
-UI, exchange-dialog, and inspection-guard hook installed. The Nyx Sprite and
-other-Conflux Pixie split still requires battle validation.
+specialty overrides removed. Runtime 18 installs no exchange event or
+Hermit's Shack hook and does not resize or redirect any loaded
+secondary-skill group.
+
+After installing the collision-free transfer atlas, ten consecutive normal
+startup and clean-close cycles completed without changing `HD_CRASH_LOG.txt`.
+Every launch reported the 32x32 exchange resource pair ready and all native
+secondary-skill groups unchanged.
 
 Active image resources:
 
@@ -33,7 +38,7 @@ Active image resources:
 - `IX32.def`: 32x32 Nyx specialty frames, scoped to supported exchanges
 - `IX44.def`: 44x44 Nyx specialty frames, scoped to hero dialogs
 
-The `IX` resources are loaded as independent DEFs. Runtime 11 does not replace
+The `IX` resources are loaded as independent DEFs. Runtime 17 does not replace
 a frame pointer or pixel buffer in HotA's shared specialty atlases.
 
 ## Executable Records
@@ -93,9 +98,78 @@ behavior and adds a Conflux-only power hook.
 | `0x004E3F40` | `H3Hero::GetNecromancyPower` | Add 5% per Spiritism level after HotA's native calculation |
 | `0x004E1A70` | Standard hero dialog | Scope the Spiritism text and resource aliases |
 | `0x004DA990` | Hero level-up processing | Scope the Spiritism text and resource aliases |
-| `0x005AAD90` | HD SwapMgr dialog builder | Scope `SPIR32.def` and Nyx's `IX32.def` while building the two-hero exchange UI |
+| `0x005AAD90` | HD SwapMgr dialog builder | Give each eligible skill control an immutable per-side `SPIR32.def` or native DEF operand during construction |
 | `HotA.dll+0x2E5D` | Hero inspection handler 1 | Guard the current-hero pointer before dereferencing offset `0x1A` |
 | `HotA.dll+0x3F2D` | Hero inspection handler 2 | Guard the duplicate current-hero dereference used while switching heroes |
+
+## Failed Runtime Designs
+
+The following designs are withdrawn and MUST NOT be reused:
+
+| Runtime | Attempt | Observed failure | Constraint |
+| --- | --- | --- | --- |
+| 13 | Wrapped `0x005AE900` and the exchange event handler | Transfer redraw and right-click still showed Necromancy; Hermit's Shack still showed Necromancy | Do not treat an installed hook as proof that the image-construction or display predicate ran |
+| 14 | Held global skill aliases from exchange construction through SwapMgr cleanup and broadened the Hermit scope | Second ordinary launch crashed in HotA's resource-copy path before an interaction | Do not hold global resource aliases across a modal lifetime or hook broad cleanup/destructor entries |
+| 15 | Rewrote all 16 exchange constructor operands per hero side and combined that with another Hermit change | First startup test crashed in HotA's resource-copy path | Do not combine transfer and Hermit changes in one validation candidate |
+| 16 | Limited Hermit to its display phase but retained permanent 87-to-93 loaded-group replacement | Later ordinary launch crashed at `HotA.dll+0x205E34` in a resource-loader `memset`; no interaction scope had executed | Do not replace HotA-owned `DefGroup` metadata or point its frame table at static DLL storage |
+| 17 | Applied raw 44x44 and 82x93 Spiritism frame pointers around the transfer event handler | The 32x32 icon worked, but right-click crashed at `HotA.dll+0x7978A` with the same raw-frame object signature as the old specialty crash | Do not insert raw custom `DefFrame` objects into HotA's converted renderer frame tables |
+
+The first runtime 17 transfer launch failed closed without crashing because
+`SPIR32.def` reused the internal names `SPIRBAS.PCX`, `SPIRADV.PCX`, and
+`SPIREXP.PCX` from `SPIRIT.def`. The serialized exchange frames were valid
+32x32 data, but HotA's name-based resource cache returned the already loaded
+44x44 objects. Secondary-skill atlases with different dimensions MUST use
+unique internal frame names.
+
+Two launch failures ended in HotA's optimized `memcpy` path at
+`HotA.dll+0x2057EA`. The runtime 16 failure ended in the corresponding
+resource-loader `memset` path at `HotA.dll+0x205E34`. These are delayed
+resource-state failures, not direct exchange or Hermit dereferences.
+
+Recovery is intentionally sequential:
+
+1. Remove permanent secondary-skill group mutation.
+2. Disable the Hermit hook.
+3. Validate transfer construction, refresh persistence, and transfer
+   right-click in game.
+4. Add Hermit's Shack in a separate candidate only after transfer is
+   accepted.
+
+## HotA Secondary-Skill Frames
+
+The original SoD secondary-skill atlases contain 87 frames:
+
+```text
+3 leading frames + 28 skills * 3 mastery frames = 87
+```
+
+HotA 1.8.0 exposes 30 skills. Interference ID `28` uses frames `87-89`, and
+Runes ID `29` uses frames `90-92`. HotA appends those six frame objects to the
+loaded native `secskill.def`, `secsk82.def`, and `secsk32.def` groups.
+
+The loose Spiritism resources are based on the original atlases and therefore
+still contain 87 serialized frames. Runtimes 12 through 16 loaded each
+native/custom pair and replaced the custom loaded group's metadata with a
+93-pointer table:
+
+```text
+frames 0-86   custom Spiritism atlas
+frames 87-92 HotA native atlas
+```
+
+Although this retained custom Spiritism frames `39-41` and made the HotA-added
+images visible, the implementation was unsafe. It changed a resource-manager
+owned `DefGroup` and pointed that group at static DLL storage. Runtime 16 later
+crashed during an unrelated resource load before any UI interaction. This
+87-to-93 loaded-group replacement is retired.
+
+The replacement design must keep HotA's native 93-frame group metadata and
+storage untouched. It may substitute only the three Necromancy frame entries
+`39-41` within a bounded synchronous UI call, restoring the exact native
+pointers before returning. Exchange controls that need a persistent 32x32
+Spiritism image must select the 87-frame custom resource only for the slot
+whose actual skill ID is `12`; Interference, Runes, and all other slots must
+retain native `secsk32.def`.
 
 HotA changes the original Necromancy base table at `0x0063E9BC`,
 `0x0063E9C0`, and `0x0063E9C4` from the SoD values to 5%, 10%, and 15%.
@@ -149,24 +223,32 @@ the hero's internal Necromancy level to be nonzero. This affects:
 - 32x32, 44x44, and 82x93 custom icons
 - Spiritism post-battle result wording
 
-Runtime 11 does not modify a specialty atlas, frame-table pointer, frame
-object, or pixel buffer. For Nyx's standard hero dialog it temporarily
+Runtime 18 does not modify a specialty atlas, frame object, or pixel buffer.
+For Nyx's standard hero dialog it temporarily
 changes the `un44.def` resource literal at `0x00679D90` to `IX44.def`. For
 the HD pregame panel it scopes the equivalent literal at
 `HD_HOTA.dll+0x2A043C`.
 
 HD Mod replaces the original SwapMgr builder at `0x005AAD90` with a
-thiscall-compatible relative jump. Runtime 11 chains that live target and
-uses the builder's existing `H3Hero*[2]` argument to decide whether to scope:
+thiscall-compatible relative jump. Runtime 18 chains that live target and
+uses the builder's existing `H3Hero*[2]` argument to select each side:
 
 - `HD_HOTA.dll+0x297650`: `secsk32.def` to `SPIR32.def`
 - `HD_HOTA.dll+0x2975F0`: `un32.def` to `IX32.def`
 
-The Spiritism alias is enabled only when at least one displayed hero is a
-Conflux Spiritist and neither displayed hero is an ordinary Necromancer. The
-Nyx alias is enabled only when Nyx is displayed and both hero IDs are below
-156, the exact frame count of `IX32.def`. The original names are restored as
-soon as dialog construction returns.
+The two reviewed HD layouts contain 16 `push secsk32.def` operands for control
+IDs `200-215`. During builder execution, runtime 18 changes only the operand
+for each slot whose actual skill ID is `12` on a Spiritist hero, then
+immediately restores every instruction. The native control constructor loads
+the selected `SPIR32.def` and stores the loaded object at control offset
+`0x30`.
+Subsequent transfer refreshes change frames and state but retain that object,
+so no global alias remains active. Nyx's specialty alias remains separately
+scoped to initial construction.
+
+The withdrawn Hermit's Shack analysis found the active hero at context offset
+`0x0C`, the selected skill at `0x18`, and a phase byte at offset `0x00`.
+Runtime 18 does not hook that callback.
 
 The original Inteus/Nyx runtime trace proved that the fixed-scenario selector
 does not call the expected image constructor at `0x004EA800`; it reuses an
@@ -295,7 +377,7 @@ _HD3_Data/Common/ConfluxSpiritism.log
 Its success log begins with:
 
 ```text
-Conflux Spiritism runtime 11
+Conflux Spiritism runtime 18 transfer-icon-only
 heroes=128-143 creature=118 nyx=119 cloak=114/113/120 rates=10/20/30 underlying-skill=12
 ```
 
@@ -304,11 +386,20 @@ and both hero-inspection guards installed. It must also report:
 
 ```text
 scoped Nyx specialty aliases=ready
-scoped exchange Spiritism alias=ready
+HD exchange skill literal=ready
+exchange control pointer sites=ready
 HD exchange dialog hook=installed
+HD exchange skill event hook=disabled for icon-only candidate
+Hermit skill upgrade hook=disabled for transfer-only candidate
 specialty atlas mutation=disabled
 extended specialty Vehr frame=available
-final=Spiritism and Nyx UI hooks installed; shared atlas untouched
+small skill frame overlay=ready; native group unchanged
+large skill frame overlay=ready; native group unchanged
+exchange skill resource pair=ready; native group unchanged
+secondary skill group mutation=disabled
+exchange right-click scope=disabled
+Hermit scope=disabled
+final=transfer-icon-only hooks installed; native HotA groups unchanged
 ```
 
 ## Shared Resources
@@ -318,19 +409,20 @@ The upgrade reuses the exact loose resources installed by Nyx Spiritism:
 | Resource | SHA-256 |
 | --- | --- |
 | `SPIRIT.def` | `ba4ba357d2859b8e5dc8077bce00b1effc0a40b42fb25fa9f53ed76dd0d85eb3` |
-| `SPIR32.def` | `0ab002201dcb81a18c989f0e49e4d37b716ff209dd86ada651f9a51c5078511c` |
+| `SPIR32.def` | `22e030b0bef348c5afa682d693f14cbe3e7886b9dfa01b319b33eb323d3290a8` |
 | `SPIR82.def` | `8016d09158fee026bcccc83a5c43dd9d8a4cf6a42db113f8e51e81270b63392f` |
 | `IX32.def` | `63ff856d3ed52daaf3b834715c60a7e39da3223fce17357367cb45ee9f810198` |
 | `IX44.def` | `eeb281b6490e4ef7e786f40e8601ca64ffa05247cd4c0c7d337382da631cf807` |
 
 The installer verifies all three copies of each resource and confirms all
 three names are registered in `#hota/Files.ini` and `#hota15/Files.ini`.
-`SPIR32.def` is built from HotA 1.8.0's `SECSK32.def` with only Necromancy
-frames 39, 40, and 41 replaced by the Basic, Advanced, and Expert Spiritism
-art.
+`SPIR32.def` is reproducibly built by `build_exchange_resource.py` from HotA
+1.8.0's `SECSK32.def`. Only Necromancy frames 39, 40, and 41 are replaced by
+the Basic, Advanced, and Expert Spiritism art. Their unique internal names
+prevent collisions with the 44x44 and 82x93 atlases.
 
 The installer verifies the exact `IX32.def` and `IX44.def` copies in `Data`
-and both compatibility packs, plus both registration lines. Runtime 11
+and both compatibility packs, plus both registration lines. Runtime 14
 references them only through scoped resource-name aliases.
 
 ## Runtime Build
@@ -351,7 +443,7 @@ The deterministic Zig 0.15.2 x86 Windows build imports only `KERNEL32.dll`.
 
 ```text
 assets/ConfluxSpiritismRuntime.dll
-SHA-256 67c071790536f4186df0b348f59a7ce06b176168442d56454be7e96dde8507fd
+SHA-256 dceddce37d411022967deec8f401c5d8bbceb526c0f7e39d83ff6dc37be28a5c
 ```
 
 Two consecutive default builds reproduce this checksum byte for byte.
@@ -549,11 +641,40 @@ runtime 11 DLLs both match
 Runtime 11 then launched with every hook installed; creature-result validation
 still requires battles with both Nyx and another Conflux hero.
 
+The 0.3.0 companion upgrade then:
+
+- preserved the Pixie Transformer runtime in `setseed.dll`;
+- installed runtime 12 as `ConfluxSpiritismRuntime.dll`;
+- extended the small, large, and exchange skill groups from 87 to 93 frames;
+- logged native Interference frames `87-89` and Runes frames `90-92`;
+- launched with both Spiritism and Pixie Transformer hook sets installed.
+
+The 0.3.1 companion upgrade then:
+
+- installed runtime 13 without changing the Pixie Transformer loader;
+- chained HD Mod's existing exchange event hook and used validated entry
+  trampolines for the native refresh and Hermit callbacks;
+- reported the builder, refresh, event, and Hermit hooks installed in a live
+  minimized startup;
+- retained all three 93-frame Spiritism atlases;
+- passed exact standalone and companion upgrade/restore fixtures;
+- created live rollback backup
+  `PixieTransformerPatch/backups/20260820-144152`.
+
+Runtimes 14 and 15 were withdrawn after reproducing HotA resource-copy
+corruption on later launches. Runtime 16 was also withdrawn after the
+2026-08-20 17:18 crash reproduced the same resource-state failure class at
+`HotA.dll+0x205E34`. Runtime 17 fixed the persistent 32x32 transfer icon but
+its right-click frame overlay crashed at `HotA.dll+0x7978A`. Runtime 18 keeps
+only the confirmed transfer icon path.
+
 ## Files Changed By Apply
 
 - `h3hota.exe`
 - `h3hota HD.exe`
 - `_HD3_Data/Common/setseed.dll`
+- `_HD3_Data/Common/ConfluxSpiritismRuntime.dll` when an overlay owns
+  `setseed.dll`
 - `Data/SPIR32.def`
 - `_HD3_Data/Compability/#hota/SPIR32.def`
 - `_HD3_Data/Compability/#hota15/SPIR32.def`

@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 
 
-VERSION = "0.1.7"
+VERSION = "0.1.14"
 RUNTIME_LOG_MARKER = "Pixie Transformer runtime 7"
 ORIGINAL_LANGUAGE_ARCHIVE_HASH = (
     "748b54cfac02ffc795f4b0c48c7cf6ef41ea0a6020f3cf41766271bd12eb81e9"
@@ -31,8 +31,32 @@ PIXIE_TRANSFORMER_015_BUILDING_TEXT_HASH = (
 PATCHED_BUILDING_TEXT_HASH = (
     "1c131975c28d7153b67de695cdbc97662681f90ed329d1986831d06a3026ed3d"
 )
-CONFLUX_SPIRITISM_RUNTIME_HASH = (
+CONFLUX_SPIRITISM_029_RUNTIME_HASH = (
     "67c071790536f4186df0b348f59a7ce06b176168442d56454be7e96dde8507fd"
+)
+CONFLUX_SPIRITISM_030_RUNTIME_HASH = (
+    "0cf45c1ecff979d9d147b9b3484646a0122c6493345febb5c6b96952d21ff41a"
+)
+CONFLUX_SPIRITISM_031_RUNTIME_HASH = (
+    "dceddce37d411022967deec8f401c5d8bbceb526c0f7e39d83ff6dc37be28a5c"
+)
+CONFLUX_SPIRITISM_032_RUNTIME_HASH = (
+    "c756333e63ea9cd2c375c7b19b569d5296de054f773b96f739fda82f2ffba1b2"
+)
+CONFLUX_SPIRITISM_033_RC1_RUNTIME_HASH = (
+    "1ce6ab184321838b5ab58e466e05a092fa9e62a4f6bbc4dbe59e210498902b91"
+)
+CONFLUX_SPIRITISM_033_RUNTIME_HASH = (
+    "169202d2fcc5981f7dcb814fd4a4a813c67ec0f6c3d72af5eed2932d58a13bb0"
+)
+CONFLUX_SPIRITISM_034_RC1_RUNTIME_HASH = (
+    "8465c248c841bf6cb22c1774511b6968b5c45214e49b162f5758887e37e84af8"
+)
+CONFLUX_SPIRITISM_034_RUNTIME_HASH = (
+    "a65f61a8bc2ee20af7861d8b65ee61f26409dc95b9e1e9a6aaabeefd94eb780b"
+)
+CONFLUX_SPIRITISM_RUNTIME_HASH = (
+    "088b48db3b9d5339059ecb51b4fcdde89f2d7d084d4a9a1a877b6ea9778ca251"
 )
 PIXIE_TRANSFORMER_010_RUNTIME_HASH = (
     "8956f877bf50ea63338230e956438bc8a8f8c15ea2ee5ad64a91690ea6b22b6f"
@@ -70,6 +94,12 @@ EXECUTABLE_HASHES = {
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_GAME_DIR = SCRIPT_DIR.parent.parent
 RUNTIME_ASSET = SCRIPT_DIR / "assets" / "PixieTransformerRuntime.dll"
+SPIRITISM_RUNTIME_ASSET = (
+    SCRIPT_DIR.parent
+    / "conflux-spiritism"
+    / "assets"
+    / "ConfluxSpiritismRuntime.dll"
+)
 RUNTIME_PATH = "_HD3_Data/Common/setseed.dll"
 SPIRITISM_COMPANION_PATH = (
     "_HD3_Data/Common/ConfluxSpiritismRuntime.dll"
@@ -310,15 +340,47 @@ def collect_status(game_dir):
             if runtime_hash == PIXIE_TRANSFORMER_011_RUNTIME_HASH
             else "pixie-transformer-0.1.0"
             if runtime_hash == PIXIE_TRANSFORMER_010_RUNTIME_HASH
-            else "conflux-spiritism-0.2.9"
+            else "conflux-spiritism-0.3.5-transfer-icon"
             if runtime_hash == CONFLUX_SPIRITISM_RUNTIME_HASH
+            else "conflux-spiritism-0.3.4-transfer-withdrawn"
+            if runtime_hash == CONFLUX_SPIRITISM_034_RUNTIME_HASH
+            else "conflux-spiritism-0.3.3"
+            if runtime_hash == CONFLUX_SPIRITISM_033_RUNTIME_HASH
+            else "conflux-spiritism-0.3.4-transfer-rc1"
+            if runtime_hash == CONFLUX_SPIRITISM_034_RC1_RUNTIME_HASH
+            else "conflux-spiritism-0.3.3-rc1"
+            if runtime_hash == CONFLUX_SPIRITISM_033_RC1_RUNTIME_HASH
+            else "conflux-spiritism-0.3.2"
+            if runtime_hash == CONFLUX_SPIRITISM_032_RUNTIME_HASH
+            else "conflux-spiritism-0.3.1"
+            if runtime_hash == CONFLUX_SPIRITISM_031_RUNTIME_HASH
+            else "conflux-spiritism-0.3.0"
+            if runtime_hash == CONFLUX_SPIRITISM_030_RUNTIME_HASH
+            else "conflux-spiritism-0.2.9"
+            if runtime_hash == CONFLUX_SPIRITISM_029_RUNTIME_HASH
             else "missing"
             if runtime_hash is None
             else "unknown"
         ),
         "spiritism_companion": (
-            "conflux-spiritism-0.2.9"
+            "conflux-spiritism-0.3.5-transfer-icon"
             if companion_hash == CONFLUX_SPIRITISM_RUNTIME_HASH
+            else "conflux-spiritism-0.3.4-transfer-withdrawn"
+            if companion_hash == CONFLUX_SPIRITISM_034_RUNTIME_HASH
+            else "conflux-spiritism-0.3.3"
+            if companion_hash == CONFLUX_SPIRITISM_033_RUNTIME_HASH
+            else "conflux-spiritism-0.3.4-transfer-rc1"
+            if companion_hash == CONFLUX_SPIRITISM_034_RC1_RUNTIME_HASH
+            else "conflux-spiritism-0.3.3-rc1"
+            if companion_hash == CONFLUX_SPIRITISM_033_RC1_RUNTIME_HASH
+            else "conflux-spiritism-0.3.2"
+            if companion_hash == CONFLUX_SPIRITISM_032_RUNTIME_HASH
+            else "conflux-spiritism-0.3.1"
+            if companion_hash == CONFLUX_SPIRITISM_031_RUNTIME_HASH
+            else "conflux-spiritism-0.3.0"
+            if companion_hash == CONFLUX_SPIRITISM_030_RUNTIME_HASH
+            else "conflux-spiritism-0.2.9"
+            if companion_hash == CONFLUX_SPIRITISM_029_RUNTIME_HASH
             else "missing"
             if companion_hash is None
             else "unknown"
@@ -359,7 +421,8 @@ def fully_applied(status):
             for state in status["executables"].values()
         )
         and status["runtime"] == "pixie-transformer"
-        and status["spiritism_companion"] == "conflux-spiritism-0.2.9"
+        and status["spiritism_companion"]
+        == "conflux-spiritism-0.3.5-transfer-icon"
         and status["building_text"] == "garden-description"
         and status["language_archive"] == "garden-description"
     )
@@ -384,10 +447,20 @@ def validate_prerequisite(status):
     ):
         raise RuntimeError(
             "The installed executables are not the reviewed Conflux "
-            "Spiritism 0.2.9 files."
+            "Spiritism files."
         )
     if (
-        status["runtime"] == "conflux-spiritism-0.2.9"
+        status["runtime"] in (
+            "conflux-spiritism-0.2.9",
+            "conflux-spiritism-0.3.0",
+            "conflux-spiritism-0.3.1",
+            "conflux-spiritism-0.3.2",
+            "conflux-spiritism-0.3.3",
+            "conflux-spiritism-0.3.5-transfer-icon",
+            "conflux-spiritism-0.3.4-transfer-withdrawn",
+            "conflux-spiritism-0.3.4-transfer-rc1",
+            "conflux-spiritism-0.3.3-rc1",
+        )
         and status["spiritism_companion"] == "missing"
         and status["building_text"] == "original-archive"
         and status["language_archive"] == "reviewed-original"
@@ -442,8 +515,74 @@ def validate_prerequisite(status):
         and status["language_archive"] == "garden-description"
     ):
         return "upgrade-0.1.6"
+    if (
+        status["runtime"] == "pixie-transformer"
+        and status["spiritism_companion"]
+        == "conflux-spiritism-0.3.4-transfer-withdrawn"
+        and status["building_text"] == "garden-description"
+        and status["language_archive"] == "garden-description"
+    ):
+        return "upgrade-0.1.14"
+    if (
+        status["runtime"] == "pixie-transformer"
+        and status["spiritism_companion"]
+        == "conflux-spiritism-0.3.4-transfer-rc1"
+        and status["building_text"] == "garden-description"
+        and status["language_archive"] == "garden-description"
+    ):
+        return "upgrade-0.1.13-rc1"
+    if (
+        status["runtime"] == "pixie-transformer"
+        and status["spiritism_companion"] == "conflux-spiritism-0.3.3"
+        and status["building_text"] == "garden-description"
+        and status["language_archive"] == "garden-description"
+    ):
+        return "upgrade-0.1.12"
+    if (
+        status["runtime"] == "pixie-transformer"
+        and status["spiritism_companion"] == "conflux-spiritism-0.3.3-rc1"
+        and status["building_text"] == "garden-description"
+        and status["language_archive"] == "garden-description"
+    ):
+        return "upgrade-0.1.11"
+    if (
+        status["runtime"] == "pixie-transformer"
+        and status["spiritism_companion"] == "conflux-spiritism-0.3.2"
+        and status["building_text"] == "garden-description"
+        and status["language_archive"] == "garden-description"
+    ):
+        return "upgrade-0.1.10"
+    if (
+        status["runtime"] == "pixie-transformer"
+        and status["spiritism_companion"] == "conflux-spiritism-0.3.1"
+        and status["building_text"] == "garden-description"
+        and status["language_archive"] == "garden-description"
+    ):
+        return "upgrade-0.1.9"
+    if (
+        status["runtime"] == "pixie-transformer"
+        and status["spiritism_companion"] == "conflux-spiritism-0.3.0"
+        and status["building_text"] == "garden-description"
+        and status["language_archive"] == "garden-description"
+    ):
+        return "upgrade-0.1.8"
+    if (
+        status["runtime"] == "pixie-transformer"
+        and status["spiritism_companion"] == "conflux-spiritism-0.2.9"
+        and status["building_text"] == "garden-description"
+        and status["language_archive"] == "garden-description"
+    ):
+        return "upgrade-0.1.7"
     if status["runtime"] not in (
         "conflux-spiritism-0.2.9",
+        "conflux-spiritism-0.3.0",
+        "conflux-spiritism-0.3.1",
+        "conflux-spiritism-0.3.2",
+        "conflux-spiritism-0.3.3",
+        "conflux-spiritism-0.3.5-transfer-icon",
+        "conflux-spiritism-0.3.4-transfer-withdrawn",
+        "conflux-spiritism-0.3.4-transfer-rc1",
+        "conflux-spiritism-0.3.3-rc1",
         "pixie-transformer-0.1.0",
         "pixie-transformer-0.1.1",
         "pixie-transformer-0.1.2",
@@ -453,8 +592,9 @@ def validate_prerequisite(status):
         "pixie-transformer",
     ):
         raise RuntimeError(
-            "Install Conflux Spiritism 0.2.9 or the reviewed Pixie "
-            "Transformer 0.1.0 through 0.1.6 release first."
+            "Install a reviewed Conflux Spiritism release through the "
+            "0.3.5 transfer-icon candidate or Pixie Transformer through "
+            "0.1.14 first."
         )
     raise RuntimeError("The installed Pixie Transformer state is incomplete.")
 
@@ -505,16 +645,13 @@ def apply_patch(game_dir):
         print("Pixie Transformer is already fully applied.")
         print_status(status)
         return
-    install_mode = validate_prerequisite(status)
+    validate_prerequisite(status)
     language_archive, building_text = patched_resources(game_dir)
-    spiritism_runtime = read_required(
-        game_dir
-        / (
-            RUNTIME_PATH
-            if install_mode == "fresh"
-            else SPIRITISM_COMPANION_PATH
+    spiritism_runtime = read_required(SPIRITISM_RUNTIME_ASSET)
+    if sha256(spiritism_runtime) != CONFLUX_SPIRITISM_RUNTIME_HASH:
+        raise RuntimeError(
+            "The packaged Conflux Spiritism runtime checksum is unexpected."
         )
-    )
     backup_dir = create_backup(game_dir)
 
     companion_path = game_dir / SPIRITISM_COMPANION_PATH

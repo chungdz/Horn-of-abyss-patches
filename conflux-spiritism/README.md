@@ -1,6 +1,6 @@
 # Conflux Spiritism
 
-Version 0.2.9
+Version 0.3.5 transfer-icon candidate
 
 This HotA 1.8.0 upgrade gives every Conflux hero Spiritism in the first
 secondary-skill slot. It builds on the reviewed
@@ -52,12 +52,35 @@ remain unchanged.
 Version 0.2.9 limits that Sprite result to Nyx. Other Conflux Spiritists
 return to raising Pixies without the Cloak.
 
+Version 0.3.0 preserves HotA's complete 30-skill image layout. The three
+custom Spiritism atlases retain Spiritism at frames `39-41` and borrow the
+native Interference frames `87-89` and Runes frames `90-92` after HotA has
+loaded them. The aliases remain disabled if that exact layout cannot be
+validated.
+
+Version 0.3.1 keeps the exchange aliases active during control refreshes and
+right-click event handling, not only initial construction. It also scopes the
+Spiritism name and large icon around HotA's Hermit's Shack skill-upgrade
+callback.
+
+Version 0.3.5 is intentionally transfer-icon-only. Runtime 18 removes the unsafe
+permanent loaded-group extension and does not install a Hermit's Shack hook.
+Each Spiritism exchange skill control loads `SPIR32.def`; all other skills,
+including Interference and Runes, retain HotA's native `secsk32.def`.
+The exchange event/right-click hook is disabled after runtime 17 reproduced
+the raw-DEF-versus-converted-renderer crash at `HotA.dll+0x7978A`.
+
+The transfer atlas uses unique internal names `SP32BAS.PCX`,
+`SP32ADV.PCX`, and `SP32EXP.PCX`. Reusing the 44x44 names caused HotA's
+resource cache to return the already loaded 44x44 frame objects even though
+the transfer file itself contained valid 32x32 data.
+
 ## Installed State
 
 Installed release state:
 
-- Runtime 11, SHA-256
-  `67c071790536f4186df0b348f59a7ce06b176168442d56454be7e96dde8507fd`
+- Runtime 18 transfer-icon candidate, SHA-256
+  `088b48db3b9d5339059ecb51b4fcdde89f2d7d084d4a9a1a877b6ea9778ca251`
 - Spiritism for all sixteen Conflux heroes
 - Conflux-only 10%/20%/30% rates
 - Sprite raising for Nyx and Pixie raising for other Conflux heroes
@@ -68,10 +91,10 @@ Installed release state:
   dialogs
 - Null guards for both HotA hero-inspection handlers
 
-The guarded installer, static machine-code checks, and runtime 11 hook
-installation pass. Runtime 10 was validated in game with Sprite raising, and
-runtime 9 had already validated all three unchanged custom Cloak results.
-Runtime 11 still requires battle confirmation of the Nyx/Pixie split.
+The guarded installer and static machine-code checks pass in the live Pixie
+Transformer composition. The 32x32 transfer icon is confirmed in game.
+Transfer right-click and Hermit's Shack remain native Necromancy for this
+stage.
 
 Removed or disabled:
 
@@ -79,7 +102,7 @@ Removed or disabled:
 - Runtime specialty frame-pointer replacement
 - Runtime specialty pixel-buffer replacement
 
-`IX32.def` and `IX44.def` remain separate resources. Runtime 11 references
+`IX32.def` and `IX44.def` remain separate resources. Runtime 18 references
 them only while constructing a Nyx-specific dialog; it never copies their
 frames or pixels into HotA's loaded `UN32.def` or `UN44.def` objects.
 
@@ -219,14 +242,19 @@ python3 patch.py restore --game-dir "../.." \
 11. Put two Conflux heroes, including Nyx, in a town. Swap visiting and
     garrison positions and confirm Spiritism uses its custom 32x32 icon in
     the creature/artifact exchange dialog.
-12. Confirm Akka and HotA-added heroes retain their native specialty images.
+12. Transfer a creature or artifact and confirm the Spiritism icon remains
+    after the exchange controls refresh. Right-click Spiritism and confirm
+    the native Necromancy popup opens without crashing.
+13. Visit a Hermit's Shack and confirm its still-native Necromancy display
+    does not affect the transfer icon.
+14. Confirm Akka and HotA-added heroes retain their native specialty images.
     Confirm Nyx uses the custom Pixie specialty portrait in her hero and
     supported exchange dialogs.
-13. Equip the Cloak of the Undead King and confirm Basic, Advanced, and Expert
+15. Equip the Cloak of the Undead King and confirm Basic, Advanced, and Expert
     Spiritism raise Fire, Earth, and Psychic Elementals respectively. Remove
     the Cloak and confirm Nyx returns to Sprites while the other heroes return
     to Pixies.
-14. Equip the Ring of Oblivion and confirm Spiritism raises nothing, matching
+16. Equip the Ring of Oblivion and confirm Spiritism raises nothing, matching
     HotA's native suppression of ordinary Necromancy and all other restoration.
     Move the Ring to the backpack and confirm raising resumes.
 
@@ -261,11 +289,8 @@ Existing heroes in saved games retain the skills serialized in those saves.
 - The Ring of Oblivion suppresses Spiritism exactly as it suppresses ordinary
   Necromancy. Because equipment is serialized, closing and reopening the game
   does not remove this effect; move the Ring to the backpack or unequip it.
-- Less common skill notifications outside the scoped hero, level-up, and
-  pregame paths can still use the word `Necromancy`.
-- The exchange dialog keeps native icons when one side is a non-Conflux
-  Necromancer, because one shared DEF name cannot represent Necromancy and
-  Spiritism differently in the same dialog.
+- Transfer right-click and Hermit's Shack still use the native Necromancy
+  name and large icon.
 - The exchange dialog keeps Nyx's native specialty image when the other hero
   has ID 156 or later. This prevents the 156-frame `IX32.def` resource from
   replacing HotA's extended specialty atlas.

@@ -1,6 +1,6 @@
 # Pixie Transformer
 
-Version 0.1.7
+Version 0.1.14 transfer-icon candidate
 
 This HotA 1.8.0 overlay replaces the Conflux Garden of Life with a Pixie
 Transformer:
@@ -16,7 +16,9 @@ Transformer:
 - Stack counts are preserved.
 - The Garden's former `+10` weekly Pixie/Sprite growth bonus is removed.
 - The Necropolis Skeleton Transformer remains unchanged.
-- Conflux Spiritism 0.2.9 remains active.
+- Conflux Spiritism 0.3.5 transfer-icon candidate remains active. This stage
+  fixes the transfer icon while intentionally leaving exchange right-click
+  and Hermit's Shack hooks disabled.
 
 The town building keeps its original `Garden of Life` name. The patch changes
 only the two Garden descriptions to:
@@ -34,8 +36,9 @@ titled `Pixie Transformer`.
 ## Prerequisite
 
 Install and validate
-[Conflux Spiritism 0.2.9](../conflux-spiritism/README.md) first. The installer
-requires the exact reviewed hashes for:
+[Conflux Spiritism 0.2.9 through the 0.3.5 transfer-icon candidate](../conflux-spiritism/README.md)
+first.
+The installer requires the exact reviewed hashes for:
 
 - `h3hota.exe`
 - `h3hota HD.exe`
@@ -55,7 +58,7 @@ therefore:
 2. Installs `PixieTransformerRuntime.dll` in the `setseed.dll` slot.
 3. Loads the preserved Spiritism runtime before applying the Garden hooks.
 
-This keeps the Spiritism 0.2.9 hero, creature, rate, Cloak, and UI behavior
+This keeps the Spiritism hero, creature, rate, Cloak, and transfer UI behavior
 intact.
 
 ## Usage
@@ -93,8 +96,9 @@ python3 patch.py restore --game-dir "../.." \
 1. Launch `h3hota HD.exe`.
 2. Confirm `_HD3_Data/Common/PixieTransformer.log` ends with
    `final=Pixie Transformer installed`.
-3. Confirm `_HD3_Data/Common/ConfluxSpiritism.log` still reports runtime 11
-   and all hooks installed.
+3. Confirm `_HD3_Data/Common/ConfluxSpiritism.log` reports runtime 18,
+   the exchange resource pair ready, and both right-click and Hermit scopes
+   disabled.
 4. Confirm a real Magic Lantern still opens its normal Pixie/Sprite
    recruitment window.
 5. Build either Garden variant and confirm its name remains Garden of Life.
@@ -112,8 +116,12 @@ python3 patch.py restore --game-dir "../.." \
     absent.
 13. Open a Necropolis Skeleton Transformer and confirm it still produces
     Skeletons or Bone Dragons normally.
-14. Win battles with Nyx and another Conflux Spiritist and confirm the
-    Spiritism 0.2.9 Sprite/Pixie split is unchanged.
+14. Transfer something between two Conflux Spiritists and confirm the
+    Spiritism exchange icon persists; right-click it and confirm the native
+    Necromancy popup opens without crashing.
+15. Confirm Hermit's Shack remains on its native Necromancy display.
+16. Win battles with Nyx and another Conflux Spiritist and confirm the
+    Spiritism 0.3.3 Sprite/Pixie split is unchanged.
 
 The Pixie-only transformer dialog and conversion path were validated in game
 with runtime 5. Runtime 6 correctly identified the Bone Dragon classes but
@@ -123,13 +131,13 @@ Bone Dragon-class-to-Firebird results are validated in game.
 
 ## Installed State
 
-Version 0.1.7 is installed in the live game directory. Static status reports
+Version 0.1.14 is installed in the live game directory. Static status reports
 the overlay runtime, Spiritism companion, reviewed executables, `HotA.dll`,
 Pixie/Firebird building text, and patched language archive complete. The
-pre-upgrade version 0.1.6 state is saved under:
+pre-upgrade 0.1.9 plus Spiritism 0.3.1 state is saved under:
 
 ```text
-PixieTransformerPatch/backups/20260820-131832
+PixieTransformerPatch/backups/20260820-162535
 ```
 
 Version 0.1.0 failed its first in-game test: clicking the visible Garden
