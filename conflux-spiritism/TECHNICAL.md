@@ -4,7 +4,7 @@
 
 - Game: Horn of the Abyss 1.8.0
 - HD Mod: 5.6 R16
-- Patch version: 0.3.6
+- Patch version: 0.3.7
 - Prerequisite: Nyx Spiritism 0.1.5/0.1.6 or Conflux Spiritism
   0.1.0/0.2.0/0.2.1/0.2.2/0.2.3/0.2.4/0.2.5/0.2.6/0.2.7/0.2.8/0.2.9/0.3.0/0.3.1/0.3.2
 - Conflux hero IDs: `128` through `143`
@@ -17,19 +17,22 @@
 
 ## Live Installed State
 
-The installed release uses runtime 19 with SHA-256
-`c6fa88be84b1531747433794210570514a6983ea83ee6878f3922ca3b06f674c`.
+The installed release uses runtime 21 with SHA-256
+`c0c25c8be7e69f55c4ece35e11b791934d58b6279799474159802826983c46d8`.
 `patch.py status` reports both executables complete, all sixteen hero records
 as Spiritism, all three custom skill resources registered, and truncated
-specialty overrides removed. Runtime 19 installs no exchange event-entry or
-Hermit's Shack hook and does not resize or redirect any loaded
-secondary-skill group. Its two right-click hooks target only the skill-ID call
-and the native popup-builder call.
+specialty overrides removed. Runtime 21 installs no exchange event-entry and
+does not resize or redirect any loaded secondary-skill group. Its transfer
+right-click hooks target only the skill-ID call and native popup-builder call.
+Its Hermit's Shack hooks target the actual Shack routine and that routine's
+single successful skill-popup call site.
 
-After installing runtime 19, five consecutive normal startup and clean-close
+After installing runtime 21, five consecutive normal startup and clean-close
 cycles completed without changing `HD_CRASH_LOG.txt`. In-game testing
 confirmed both the persistent 32x32 transfer icon and the Spiritism
-right-click popup. The log recorded five native-loader popup activations.
+right-click popup from runtime 19 remained unchanged, and confirmed the
+Hermit's Shack Spiritism description and 82x93 icon. The Shack interaction
+logged `Hermit Shack popup=Spiritism native-loader scope`.
 
 Active image resources:
 
@@ -39,7 +42,7 @@ Active image resources:
 - `IX32.def`: 32x32 Nyx specialty frames, scoped to supported exchanges
 - `IX44.def`: 44x44 Nyx specialty frames, scoped to hero dialogs
 
-The `IX` resources are loaded as independent DEFs. Runtime 19 does not replace
+The `IX` resources are loaded as independent DEFs. Runtime 21 does not replace
 a frame pointer or pixel buffer in HotA's shared specialty atlases.
 
 ## Executable Records
@@ -116,6 +119,12 @@ The following designs are withdrawn and MUST NOT be reused:
 | 15 | Rewrote all 16 exchange constructor operands per hero side and combined that with another Hermit change | First startup test crashed in HotA's resource-copy path | Do not combine transfer and Hermit changes in one validation candidate |
 | 16 | Limited Hermit to its display phase but retained permanent 87-to-93 loaded-group replacement | Later ordinary launch crashed at `HotA.dll+0x205E34` in a resource-loader `memset`; no interaction scope had executed | Do not replace HotA-owned `DefGroup` metadata or point its frame table at static DLL storage |
 | 17 | Applied raw 44x44 and 82x93 Spiritism frame pointers around the transfer event handler | The 32x32 icon worked, but right-click crashed at `HotA.dll+0x7978A` with the same raw-frame object signature as the old specialty crash | Do not insert raw custom `DefFrame` objects into HotA's converted renderer frame tables |
+| 20 | Hooked `HotA.dll+0x17A920` as the Hermit's Shack display callback | The Shack still showed Necromancy, and the runtime emitted no interaction line | Do not identify an object callback only from a similar skill-upgrade signature; require an interaction trace from the exact object path |
+
+Runtime 20's five launch cycles were clean because the hook was never called.
+The failed in-game test instead led to the actual Shack routine at
+`HotA.dll+0x15F480`; its successful skill popup loads through the
+`mov eax, 0x004F6C00` site at `HotA.dll+0x15F6C9`.
 
 The first runtime 17 transfer launch failed closed without crashing because
 `SPIR32.def` reused the internal names `SPIRBAS.PCX`, `SPIRADV.PCX`, and
@@ -136,7 +145,8 @@ Recovery is intentionally sequential:
 3. Validate transfer construction, refresh persistence, and transfer
    right-click in game.
 4. Add Hermit's Shack in a separate candidate only after transfer is
-   accepted.
+   accepted, and require a Shack-specific interaction log before accepting
+   the path.
 
 ## HotA Secondary-Skill Frames
 
@@ -226,7 +236,7 @@ the hero's internal Necromancy level to be nonzero. This affects:
 - 32x32, 44x44, and 82x93 custom icons
 - Spiritism post-battle result wording
 
-Runtime 19 does not modify a specialty atlas, frame object, or pixel buffer.
+Runtime 21 does not modify a specialty atlas, frame object, or pixel buffer.
 For Nyx's standard hero dialog it temporarily
 changes the `un44.def` resource literal at `0x00679D90` to `IX44.def`. For
 the HD pregame panel it scopes the equivalent literal at
@@ -253,9 +263,14 @@ therefore loads and converts `SPIR82.def` through its normal resource path.
 The literal is restored before the wrapper returns. Nyx's specialty alias
 remains separately scoped to initial construction.
 
-The withdrawn Hermit's Shack analysis found the active hero at context offset
-`0x0C`, the selected skill at `0x18`, and a phase byte at offset `0x00`.
-Runtime 19 does not hook that callback.
+Runtime 20 incorrectly targeted the separate reward callback at
+`HotA.dll+0x17A920`; the in-game Shack never reached it. Runtime 21 instead
+wraps the actual Shack routine at `HotA.dll+0x15F480`. The first stack argument
+is the visiting hero. While that exact routine handles a Conflux Spiritist,
+the absolute popup target at `HotA.dll+0x15F6C9` is redirected from
+`0x004F6C00` to the scoped wrapper. Only popup type `20` and frames `39-41`
+select the matching Spiritism description and `SPIR82.def`. The native
+filename is restored immediately after the popup returns.
 
 The original Inteus/Nyx runtime trace proved that the fixed-scenario selector
 does not call the expected image constructor at `0x004EA800`; it reuses an
@@ -384,7 +399,7 @@ _HD3_Data/Common/ConfluxSpiritism.log
 Its success log begins with:
 
 ```text
-Conflux Spiritism runtime 19 transfer-right-click
+Conflux Spiritism runtime 21 Hermit Shack
 heroes=128-143 creature=118 nyx=119 cloak=114/113/120 rates=10/20/30 underlying-skill=12
 ```
 
@@ -397,7 +412,7 @@ HD exchange skill literal=ready
 exchange control pointer sites=ready
 HD exchange dialog hook=installed
 HD exchange skill right-click call hooks=installed
-Hermit skill upgrade hook=disabled for transfer-only candidate
+Hermit Shack entry+popup hooks=installed
 specialty atlas mutation=disabled
 extended specialty Vehr frame=available
 small skill frame overlay=ready; native group unchanged
@@ -405,8 +420,14 @@ large skill frame overlay=ready; native group unchanged
 exchange skill resource pair=ready; native group unchanged
 secondary skill group mutation=disabled
 exchange right-click scope=native popup loader filename only
-Hermit scope=disabled
-final=transfer icon+right-click hooks installed; native HotA groups unchanged
+Hermit scope=exact Shack success popup native loader only
+final=transfer+Hermit display hooks installed; native HotA groups unchanged
+```
+
+After a successful Spiritism upgrade, the interaction log must also contain:
+
+```text
+Hermit Shack popup=Spiritism native-loader scope
 ```
 
 ## Shared Resources
@@ -675,6 +696,9 @@ corruption on later launches. Runtime 16 was also withdrawn after the
 its right-click frame overlay crashed at `HotA.dll+0x7978A`. Runtime 18 kept
 only the confirmed transfer icon path. Runtime 19 adds the confirmed
 right-click popup through HotA's native filename-loading and conversion path.
+Runtime 20 was withdrawn because its supposed Shack callback was never called.
+Runtime 21 targets the actual Shack routine and success-popup site; it passed
+five launch cycles and its Spiritism popup was confirmed in game.
 
 ## Files Changed By Apply
 

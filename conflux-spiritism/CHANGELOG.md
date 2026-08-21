@@ -2,6 +2,19 @@
 
 ## Unreleased - 2026-08-21
 
+- Withdrew runtime 20 after the in-game Shack test emitted no interaction
+  diagnostic. `HotA.dll+0x17A920` is a different secondary-skill reward
+  callback, not the path used by Hermit's Shack.
+- Identified the actual Shack routine at `HotA.dll+0x15F480` and its exact
+  successful skill-popup loader site at `HotA.dll+0x15F6C9`.
+- Released runtime 21 as Conflux Spiritism 0.3.7. It records only the
+  visiting hero around the Shack routine, then selects `SPIR82.def` and the
+  matching Spiritism description only when that exact popup requests frames
+  `39-41`. Transfer behavior is unchanged.
+- Completed five normal launch and clean-close cycles without changing the
+  crash log, then confirmed the Spiritism description and large icon in
+  Hermit's Shack. The interaction log recorded
+  `Hermit Shack popup=Spiritism native-loader scope`.
 - Added runtime 19 with two narrow transfer right-click call-site hooks.
   The clicked skill is identified at `0x005B0342`; the popup call at
   `0x005B0863` temporarily changes only the `secsk82.def` filename and
@@ -10,7 +23,7 @@
   large image in game. The runtime log recorded five successful
   `Spiritism native-loader scope` activations.
 - Completed five consecutive normal launches without changing the latest
-  crash log. Hermit's Shack remains disabled for separate validation.
+  crash log before the separate Hermit's Shack implementation.
 - Confirmed in game that runtime 17 preserves the 32x32 Spiritism icon after
   opening the hero-transfer dialog.
 - Withdrew runtime 17's right-click scope after it crashed at

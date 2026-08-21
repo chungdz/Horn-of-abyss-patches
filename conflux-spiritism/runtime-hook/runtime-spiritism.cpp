@@ -40,6 +40,9 @@
 #define SWAP_SKILL_ID_CALL_ADDRESS 0x005B0342
 #define SWAP_SKILL_POPUP_CALL_ADDRESS 0x005B0863
 #define SHOW_POPUP_ADDRESS 0x004F6C00
+#define HOTA_HERMIT_SHACK_RVA 0x0015F480
+#define HOTA_HERMIT_SHACK_PROLOGUE_SIZE 6
+#define HOTA_HERMIT_POPUP_MOV_RVA 0x0015F6C9
 #endif
 #define SWAP_SKILL_CONTROL_COUNT 16
 #define SWAP_SKILL_CONTROLS_PER_HERO 8
@@ -89,7 +92,7 @@
 #ifdef CHINESE_HOTA_R10
 #define HOOK_PATCH_COUNT 9
 #else
-#define HOOK_PATCH_COUNT 11
+#define HOOK_PATCH_COUNT 13
 #endif
 
 struct ResourceItem {
@@ -179,6 +182,13 @@ typedef void (__fastcall *ShowSwapSkillPopup)(
   int eighth,
   int ninth,
   int tenth);
+typedef int (__thiscall *HotaHermitShack)(
+  void *shack,
+  void *hero,
+  int second,
+  int third,
+  int fourth,
+  int fifth);
 #endif
 
 struct CodePatch {
@@ -226,7 +236,13 @@ static SwapDialogBuilder chained_swap_dialog_builder;
 #ifndef CHINESE_HOTA_R10
 static GetSecondarySkillId chained_swap_get_secondary_skill_id;
 static ShowSwapSkillPopup chained_show_swap_skill_popup;
+static HotaHermitShack chained_hota_hermit_shack;
 static volatile LONG swap_right_click_spiritism_level;
+static volatile LONG hermit_spiritism_depth;
+static const BYTE hota_hermit_shack_prologue[
+  HOTA_HERMIT_SHACK_PROLOGUE_SIZE] = {
+    0x51, 0x53, 0x8B, 0x5C, 0x24, 0x0C,
+  };
 #endif
 static SkillFrameOverlay small_skill_overlay;
 static SkillFrameOverlay large_skill_overlay;
@@ -1589,6 +1605,95 @@ static void __fastcall direct_show_swap_skill_popup(
     write_log();
   }
 }
+
+static int __fastcall direct_hota_hermit_shack(
+  void *shack,
+  void *,
+  void *hero,
+  int second,
+  int third,
+  int fourth,
+  int fifth) {
+  BOOL spiritist = is_spiritist_hero(hero);
+  int result;
+
+  if (spiritist) {
+    InterlockedIncrement(&hermit_spiritism_depth);
+  }
+  result = chained_hota_hermit_shack(
+    shack,
+    hero,
+    second,
+    third,
+    fourth,
+    fifth);
+  if (spiritist) {
+    InterlockedDecrement(&hermit_spiritism_depth);
+  }
+  return result;
+}
+
+static void __fastcall direct_show_hermit_skill_popup(
+  const char *text,
+  int mode,
+  int first,
+  int second,
+  int type,
+  int frame,
+  int fifth,
+  int sixth,
+  int seventh,
+  int eighth,
+  int ninth,
+  int tenth) {
+  char saved_definition[SECONDARY_SKILL_LARGE_DEFINITION_CAPACITY];
+  BOOL definition_applied = FALSE;
+  BOOL spiritism_scope =
+    InterlockedCompareExchange(
+      &hermit_spiritism_depth,
+      0,
+      0) > 0 &&
+    type == 20 &&
+    frame >= SPIRITISM_FRAME_FIRST &&
+    frame < SPIRITISM_FRAME_FIRST + SPIRITISM_FRAME_COUNT &&
+    large_skill_overlay.ready &&
+    apply_definition_alias(
+      SECONDARY_SKILL_LARGE_DEFINITION_ADDRESS,
+      native_large_definition_name,
+      spiritism_large_definition_name,
+      saved_definition,
+      sizeof(saved_definition),
+      &definition_applied);
+  const char *popup_text =
+    spiritism_scope
+      ? spiritism_text.description[frame - SPIRITISM_FRAME_FIRST]
+      : text;
+
+  chained_show_swap_skill_popup(
+    popup_text,
+    mode,
+    first,
+    second,
+    type,
+    frame,
+    fifth,
+    sixth,
+    seventh,
+    eighth,
+    ninth,
+    tenth);
+  restore_definition_alias(
+    SECONDARY_SKILL_LARGE_DEFINITION_ADDRESS,
+    saved_definition,
+    sizeof(saved_definition),
+    &definition_applied);
+  append_text("Hermit Shack popup=");
+  append_text(
+    spiritism_scope
+      ? "Spiritism native-loader scope\r\n"
+      : "native\r\n");
+  write_log();
+}
 #endif
 
 static void append_code_bytes(const char *label, uintptr_t address) {
@@ -1630,6 +1735,26 @@ static BOOL get_relative_target(
       ((DWORD)instruction[3] << 16) |
       ((DWORD)instruction[4] << 24));
   *target = address + 5 + displacement;
+  return TRUE;
+}
+
+static BOOL get_absolute_mov_target(
+  uintptr_t address,
+  uintptr_t *target) {
+  BYTE instruction[5];
+
+  if (
+    target == NULL ||
+    !safe_read(address, instruction, sizeof(instruction)) ||
+    instruction[0] != 0xB8) {
+    return FALSE;
+  }
+  *target =
+    (uintptr_t)(
+      (DWORD)instruction[1] |
+      ((DWORD)instruction[2] << 8) |
+      ((DWORD)instruction[3] << 16) |
+      ((DWORD)instruction[4] << 24));
   return TRUE;
 }
 
@@ -1689,6 +1814,40 @@ static BOOL prepare_relative_patch(
   }
   patch->address = address;
   patch->size = 5;
+  return TRUE;
+}
+
+static BOOL prepare_absolute_mov_patch(
+  uintptr_t address,
+  uintptr_t expected_target,
+  void *replacement,
+  CodePatch *patch) {
+  BYTE live[5];
+  DWORD target;
+  DWORD replacement_target = (DWORD)(uintptr_t)replacement;
+  DWORD index;
+
+  if (
+    patch == NULL ||
+    !safe_read(address, live, sizeof(live)) ||
+    live[0] != 0xB8) {
+    return FALSE;
+  }
+  target =
+    (DWORD)live[1] |
+    ((DWORD)live[2] << 8) |
+    ((DWORD)live[3] << 16) |
+    ((DWORD)live[4] << 24);
+  if (target != (DWORD)expected_target) {
+    return FALSE;
+  }
+  patch->address = address;
+  patch->size = sizeof(live);
+  for (index = 0; index < sizeof(live); index++) {
+    patch->original[index] = live[index];
+    patch->replacement[index] = live[index];
+  }
+  write_u32(patch->replacement + 1, replacement_target);
   return TRUE;
 }
 
@@ -2066,6 +2225,14 @@ static BOOL runtime_targets_ready(
       SWAP_SKILL_POPUP_CALL_ADDRESS,
       0xE8,
       &target) ||
+    target != SHOW_POPUP_ADDRESS ||
+    !entry_patch_target_ready(
+      (uintptr_t)hota_module + HOTA_HERMIT_SHACK_RVA,
+      hota_hermit_shack_prologue,
+      sizeof(hota_hermit_shack_prologue)) ||
+    !get_absolute_mov_target(
+      (uintptr_t)hota_module + HOTA_HERMIT_POPUP_MOV_RVA,
+      &target) ||
     target != SHOW_POPUP_ADDRESS
 #endif
     ) {
@@ -2096,8 +2263,8 @@ static BOOL wait_for_runtime_targets(
   BYTE previous[36];
   BYTE current[36];
 #else
-  BYTE previous[46];
-  BYTE current[46];
+  BYTE previous[57];
+  BYTE current[57];
 #endif
   BOOL have_previous = FALSE;
   DWORD stable_checks = 0;
@@ -2125,7 +2292,15 @@ static BOOL wait_for_runtime_targets(
 #ifndef CHINESE_HOTA_R10
       &&
       safe_read(SWAP_SKILL_ID_CALL_ADDRESS, current + 36, 5) &&
-      safe_read(SWAP_SKILL_POPUP_CALL_ADDRESS, current + 41, 5)
+      safe_read(SWAP_SKILL_POPUP_CALL_ADDRESS, current + 41, 5) &&
+      safe_read(
+        (uintptr_t)*hota + HOTA_HERMIT_SHACK_RVA,
+        current + 46,
+        HOTA_HERMIT_SHACK_PROLOGUE_SIZE) &&
+      safe_read(
+        (uintptr_t)*hota + HOTA_HERMIT_POPUP_MOV_RVA,
+        current + 52,
+        5)
 #endif
       ) {
       if (
@@ -2172,6 +2347,7 @@ static BOOL install_hooks(void) {
 #ifndef CHINESE_HOTA_R10
   uintptr_t target_swap_get_secondary_skill_id = 0;
   uintptr_t target_show_swap_skill_popup = 0;
+  uintptr_t target_hota_hermit_shack = 0;
 #endif
   BOOL prepared;
 
@@ -2214,6 +2390,12 @@ static BOOL install_hooks(void) {
   append_code_bytes(
     "live HD exchange skill-popup call",
     SWAP_SKILL_POPUP_CALL_ADDRESS);
+  append_code_bytes(
+    "live HotA Hermit Shack",
+    (uintptr_t)hota + HOTA_HERMIT_SHACK_RVA);
+  append_code_bytes(
+    "live HotA Hermit Shack popup",
+    (uintptr_t)hota + HOTA_HERMIT_POPUP_MOV_RVA);
 #endif
   append_code_bytes(
     "live hero inspection dereference 1",
@@ -2344,7 +2526,19 @@ static BOOL install_hooks(void) {
       (void *)direct_show_swap_skill_popup,
       SHOW_POPUP_ADDRESS,
       &target_show_swap_skill_popup,
-      &patches[10])
+      &patches[10]) &&
+    prepare_entry_patch(
+      (uintptr_t)hota + HOTA_HERMIT_SHACK_RVA,
+      hota_hermit_shack_prologue,
+      sizeof(hota_hermit_shack_prologue),
+      (void *)direct_hota_hermit_shack,
+      &target_hota_hermit_shack,
+      &patches[11]) &&
+    prepare_absolute_mov_patch(
+      (uintptr_t)hota + HOTA_HERMIT_POPUP_MOV_RVA,
+      SHOW_POPUP_ADDRESS,
+      (void *)direct_show_hermit_skill_popup,
+      &patches[12])
 #endif
     &&
     target_hd_1 == target_hd_2 &&
@@ -2375,6 +2569,8 @@ static BOOL install_hooks(void) {
     (GetSecondarySkillId)target_swap_get_secondary_skill_id;
   chained_show_swap_skill_popup =
     (ShowSwapSkillPopup)target_show_swap_skill_popup;
+  chained_hota_hermit_shack =
+    (HotaHermitShack)target_hota_hermit_shack;
 #endif
 
   prepared = apply_code_patches(patches, HOOK_PATCH_COUNT);
@@ -2397,11 +2593,16 @@ static BOOL install_hooks(void) {
 #else
   append_text("HD exchange skill right-click call hooks=disabled\r\n");
 #endif
-  append_text("Hermit skill upgrade hook=disabled for transfer-only candidate\r\n");
+#ifndef CHINESE_HOTA_R10
+  append_text("Hermit Shack entry+popup hooks=");
+  append_text(prepared ? "installed\r\n" : "failed\r\n");
+#else
+  append_text("Hermit skill display hook=disabled\r\n");
+#endif
   append_text("hero inspection null guards=");
   append_text(prepared ? "installed\r\n" : "failed\r\n");
   append_text(
-    "hook backend=relative chaining; no exchange event entry or Hermit hook\r\n");
+    "hook backend=relative chaining; no exchange event entry\r\n");
   return prepared;
 }
 
@@ -2449,7 +2650,7 @@ static DWORD WINAPI patch_thread(LPVOID) {
   BOOL vehr_frame_available;
   BOOL hooks_installed;
 
-  append_text("Conflux Spiritism runtime 19 transfer-right-click\r\n");
+  append_text("Conflux Spiritism runtime 21 Hermit Shack\r\n");
 #ifdef CHINESE_HOTA_R10
   append_text(
     "heroes=128-143 creature=118 cloak=114/113/120 "
@@ -2501,14 +2702,15 @@ static DWORD WINAPI patch_thread(LPVOID) {
   append_text("secondary skill group mutation=disabled\r\n");
   append_text(
     "exchange right-click scope=native popup loader filename only\r\n");
-  append_text("Hermit scope=disabled\r\n");
+  append_text(
+    "Hermit scope=exact Shack success popup native loader only\r\n");
 
   append_text("final=");
   append_text(
     skill_overlays_ready &&
       vehr_frame_available &&
       hooks_installed
-      ? "transfer icon+right-click hooks installed; native HotA groups unchanged"
+      ? "transfer+Hermit display hooks installed; native HotA groups unchanged"
       : "one or more runtime operations failed");
   append_text("\r\n");
   write_log();

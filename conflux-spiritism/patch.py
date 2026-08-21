@@ -15,7 +15,7 @@ HERO_RECORD_STRIDE = 0x5C
 FIRST_SKILL_TYPE_OFFSET = 0x27CBDC
 NECROMANCY = 12
 EMPTY_SKILL = 0xFFFFFFFF
-RUNTIME_LOG_MARKER = "Conflux Spiritism runtime 19 transfer-right-click"
+RUNTIME_LOG_MARKER = "Conflux Spiritism runtime 21 Hermit Shack"
 
 HEROES = (
     (128, "Pasis", 22, 1, 20, 1),
@@ -130,6 +130,15 @@ CONFLUX_034_RUNTIME_HASH = (
 )
 CONFLUX_035_RUNTIME_HASH = (
     "088b48db3b9d5339059ecb51b4fcdde89f2d7d084d4a9a1a877b6ea9778ca251"
+)
+CONFLUX_036_RUNTIME_HASH = (
+    "c6fa88be84b1531747433794210570514a6983ea83ee6878f3922ca3b06f674c"
+)
+CONFLUX_037_RC1_RUNTIME_HASH = (
+    "129b0f2d9a75ea6609cbace190f9d833460f19444794cd9a56adb643b746cdce"
+)
+CONFLUX_037_RUNTIME_HASH = (
+    "c0c25c8be7e69f55c4ece35e11b791934d58b6279799474159802826983c46d8"
 )
 SMALL_RESOURCE_HASH = (
     "ba4ba357d2859b8e5dc8077bce00b1effc0a40b42fb25fa9f53ed76dd0d85eb3"
@@ -460,10 +469,7 @@ def last_launch_state(game_dir):
             "HD exchange skill right-click call hooks=installed"
             in log
         )
-        and (
-            "Hermit skill upgrade hook=disabled for transfer-only candidate"
-            in log
-        )
+        and "Hermit Shack entry+popup hooks=installed" in log
         and "hero inspection null guards=installed" in log
         and "specialty atlas mutation=disabled" in log
         and "scoped Nyx specialty aliases=ready" in log
@@ -472,7 +478,7 @@ def last_launch_state(game_dir):
         and "extended specialty Vehr frame=available" in log
         and (
             "hook backend=relative chaining; "
-            "no exchange event entry or Hermit hook"
+            "no exchange event entry"
             in log
         )
         and (
@@ -493,9 +499,12 @@ def last_launch_state(game_dir):
             "native popup loader filename only"
             in log
         )
-        and "Hermit scope=disabled" in log
         and (
-            "final=transfer icon+right-click hooks installed; "
+            "Hermit scope=exact Shack success popup native loader only"
+            in log
+        )
+        and (
+            "final=transfer+Hermit display hooks installed; "
             "native HotA groups unchanged"
             in log
         )
@@ -576,6 +585,12 @@ def collect_status(game_dir):
             if runtime_hash == CONFLUX_034_RUNTIME_HASH
             else "conflux-spiritism-0.3.5-transfer-icon"
             if runtime_hash == CONFLUX_035_RUNTIME_HASH
+            else "conflux-spiritism-0.3.6-right-click"
+            if runtime_hash == CONFLUX_036_RUNTIME_HASH
+            else "conflux-spiritism-0.3.7"
+            if runtime_hash == CONFLUX_037_RUNTIME_HASH
+            else "conflux-spiritism-0.3.7-hermit-rc1-uncalled"
+            if runtime_hash == CONFLUX_037_RC1_RUNTIME_HASH
             else "nyx-spiritism"
             if runtime_hash == NYX_RUNTIME_HASH
             else "nyx-spiritism-0.1.5"
@@ -737,6 +752,9 @@ def validate_prerequisite(game_dir, status):
             "conflux-spiritism-0.3.4-transfer-rc1",
             "conflux-spiritism-0.3.4-transfer-withdrawn",
             "conflux-spiritism-0.3.5-transfer-icon",
+            "conflux-spiritism-0.3.6-right-click",
+            "conflux-spiritism-0.3.7",
+            "conflux-spiritism-0.3.7-hermit-rc1-uncalled",
         ):
             raise RuntimeError(
                 "The installed Conflux runtime is not a reviewed upgrade source."

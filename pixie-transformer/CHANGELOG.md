@@ -2,6 +2,13 @@
 
 ## Unreleased - 2026-08-21
 
+- Withdrew the runtime 20 Spiritism companion after its supposed Hermit
+  callback was not reached by the in-game Shack interaction.
+- Released runtime 21 as the Conflux Spiritism 0.3.7 companion using the actual
+  Shack routine and its exact native popup-loader call site.
+- Confirmed the Spiritism description and large icon in Hermit's Shack after
+  five clean launch cycles. The interaction log recorded the exact
+  native-loader scope.
 - Upgraded the companion to Conflux Spiritism 0.3.6 runtime 19.
 - Confirmed the persistent transfer icon and Spiritism right-click popup in
   game after five clean startup cycles. Hermit's Shack remains disabled.

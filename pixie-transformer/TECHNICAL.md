@@ -4,9 +4,9 @@
 
 - Game: Horn of the Abyss 1.8.0
 - HD Mod: 5.6 R16
-- Patch version: 0.1.15
+- Patch version: 0.1.16
 - Runtime marker: `Pixie Transformer runtime 7`
-- Prerequisite: Conflux Spiritism 0.2.9 through 0.3.6
+- Prerequisite: Conflux Spiritism 0.2.9 through 0.3.7
 - Town: Conflux, ID `8`
 - Garden controls and built bits: Horde 1 IDs `18` and `19`
 - Actual Magic Lantern dwelling controls: IDs `30` and `37`
@@ -28,6 +28,8 @@ Reviewed prerequisite hashes:
 | Spiritism 0.3.2 runtime | `c756333e63ea9cd2c375c7b19b569d5296de054f773b96f739fda82f2ffba1b2` |
 | Spiritism 0.3.3 runtime 15 RC | `1ce6ab184321838b5ab58e466e05a092fa9e62a4f6bbc4dbe59e210498902b91` |
 | Spiritism 0.3.3 runtime 16 | `169202d2fcc5981f7dcb814fd4a4a813c67ec0f6c3d72af5eed2932d58a13bb0` |
+| Spiritism 0.3.6 runtime 19 | `c6fa88be84b1531747433794210570514a6983ea83ee6878f3922ca3b06f674c` |
+| Spiritism 0.3.7 runtime 21 | `c0c25c8be7e69f55c4ece35e11b791934d58b6279799474159802826983c46d8` |
 | Pixie Transformer 0.1.0 runtime | `8956f877bf50ea63338230e956438bc8a8f8c15ea2ee5ad64a91690ea6b22b6f` |
 | Pixie Transformer 0.1.1 runtime | `ab7ba9cf873fd60a33c1ac8243591b1407d00b027d8885d808ef10e75e4ed336` |
 | Pixie Transformer 0.1.2 runtime | `e8f2268d696761bb9ddf9a5c0b9fc1dd53f2370d5cb87beb4e863f333e7cafc3` |
@@ -39,12 +41,12 @@ Reviewed prerequisite hashes:
 ## Live Installed State
 
 The live game retains the Pixie Transformer loader and uses the confirmed
-Spiritism runtime 19 companion:
+Spiritism runtime 21 companion:
 
 - Pixie Transformer `setseed.dll`:
   `418103cc28826cda225439b6594b2ccb9c85176697d79a142bb9a0dbf47f2509`
 - Spiritism companion:
-  `c6fa88be84b1531747433794210570514a6983ea83ee6878f3922ca3b06f674c`
+  `c0c25c8be7e69f55c4ece35e11b791934d58b6279799474159802826983c46d8`
 - Pixie/Firebird `Data/BldgSpec.txt`:
   `1c131975c28d7153b67de695cdbc97662681f90ed329d1986831d06a3026ed3d`
 - Pixie/Firebird `Data/HotA_lng.lod`:
@@ -53,8 +55,8 @@ Spiritism runtime 19 companion:
 - Collision-free `SPIR32.def`:
   `22e030b0bef348c5afa682d693f14cbe3e7886b9dfa01b319b33eb323d3290a8`
 - Transfer icon and right-click popup confirmed in game
-- Hermit's Shack hook disabled for separate later validation
-- Runtime 19 passed five normal startup and clean-close cycles without a new
+- Hermit's Shack Spiritism description and large icon confirmed in game
+- Runtime 21 passed five normal startup and clean-close cycles without a new
   crash
 
 Backup `PixieTransformerPatch/backups/20260820-162535` contains the exact
@@ -370,6 +372,9 @@ Completed:
 - Runtime 18 icon-only startup with exchange event and Hermit hooks disabled
 - Runtime 19 five-launch validation and confirmed Spiritism transfer
   right-click popup
+- Runtime 20 uncalled Hermit's Shack callback diagnosis
+- Runtime 21 five-launch validation and confirmed Hermit's Shack Spiritism
+  popup
 
 Pending:
 
