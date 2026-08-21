@@ -2,6 +2,14 @@
 
 ## Unreleased - 2026-08-21
 
+- Released overlay composition 0.1.17 with the Conflux Spiritism 0.3.8
+  runtime 22 companion. The Pixie Transformer runtime is unchanged.
+- Removed the companion's remaining raw 44x44 and 82x93 frame-table overlays.
+  Standard, town, and level-up UI now select the Spiritism resources before
+  HotA's native loaders convert them.
+- Completed five clean launch cycles and confirmed the town hero page,
+  transfer right-click popup, and Hermit's Shack popup in game without a new
+  crash log.
 - Withdrew the runtime 20 Spiritism companion after its supposed Hermit
   callback was not reached by the in-game Shack interaction.
 - Released runtime 21 as the Conflux Spiritism 0.3.7 companion using the actual

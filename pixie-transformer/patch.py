@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 
 
-VERSION = "0.1.16"
+VERSION = "0.1.17"
 RUNTIME_LOG_MARKER = "Pixie Transformer runtime 7"
 ORIGINAL_LANGUAGE_ARCHIVE_HASH = (
     "748b54cfac02ffc795f4b0c48c7cf6ef41ea0a6020f3cf41766271bd12eb81e9"
@@ -64,8 +64,11 @@ CONFLUX_SPIRITISM_036_RUNTIME_HASH = (
 CONFLUX_SPIRITISM_037_RC1_RUNTIME_HASH = (
     "129b0f2d9a75ea6609cbace190f9d833460f19444794cd9a56adb643b746cdce"
 )
-CONFLUX_SPIRITISM_RUNTIME_HASH = (
+CONFLUX_SPIRITISM_037_RUNTIME_HASH = (
     "c0c25c8be7e69f55c4ece35e11b791934d58b6279799474159802826983c46d8"
+)
+CONFLUX_SPIRITISM_RUNTIME_HASH = (
+    "2201c2a38ce4816d4678c5d3d5bc15dd4a0894bcc190d0d747dcc4e8b6ed904a"
 )
 PIXIE_TRANSFORMER_010_RUNTIME_HASH = (
     "8956f877bf50ea63338230e956438bc8a8f8c15ea2ee5ad64a91690ea6b22b6f"
@@ -349,8 +352,10 @@ def collect_status(game_dir):
             if runtime_hash == PIXIE_TRANSFORMER_011_RUNTIME_HASH
             else "pixie-transformer-0.1.0"
             if runtime_hash == PIXIE_TRANSFORMER_010_RUNTIME_HASH
-            else "conflux-spiritism-0.3.7"
+            else "conflux-spiritism-0.3.8"
             if runtime_hash == CONFLUX_SPIRITISM_RUNTIME_HASH
+            else "conflux-spiritism-0.3.7"
+            if runtime_hash == CONFLUX_SPIRITISM_037_RUNTIME_HASH
             else "conflux-spiritism-0.3.6-right-click"
             if runtime_hash == CONFLUX_SPIRITISM_036_RUNTIME_HASH
             else "conflux-spiritism-0.3.7-hermit-rc1-uncalled"
@@ -378,8 +383,10 @@ def collect_status(game_dir):
             else "unknown"
         ),
         "spiritism_companion": (
-            "conflux-spiritism-0.3.7"
+            "conflux-spiritism-0.3.8"
             if companion_hash == CONFLUX_SPIRITISM_RUNTIME_HASH
+            else "conflux-spiritism-0.3.7"
+            if companion_hash == CONFLUX_SPIRITISM_037_RUNTIME_HASH
             else "conflux-spiritism-0.3.6-right-click"
             if companion_hash == CONFLUX_SPIRITISM_036_RUNTIME_HASH
             else "conflux-spiritism-0.3.7-hermit-rc1-uncalled"
@@ -443,7 +450,7 @@ def fully_applied(status):
         )
         and status["runtime"] == "pixie-transformer"
         and status["spiritism_companion"]
-        == "conflux-spiritism-0.3.7"
+        == "conflux-spiritism-0.3.8"
         and status["building_text"] == "garden-description"
         and status["language_archive"] == "garden-description"
     )
@@ -478,6 +485,7 @@ def validate_prerequisite(status):
             "conflux-spiritism-0.3.2",
             "conflux-spiritism-0.3.3",
             "conflux-spiritism-0.3.6-right-click",
+            "conflux-spiritism-0.3.8",
             "conflux-spiritism-0.3.7",
             "conflux-spiritism-0.3.5-transfer-icon",
             "conflux-spiritism-0.3.4-transfer-withdrawn",
@@ -538,6 +546,14 @@ def validate_prerequisite(status):
         and status["language_archive"] == "garden-description"
     ):
         return "upgrade-0.1.6"
+    if (
+        status["runtime"] == "pixie-transformer"
+        and status["spiritism_companion"]
+        == "conflux-spiritism-0.3.7"
+        and status["building_text"] == "garden-description"
+        and status["language_archive"] == "garden-description"
+    ):
+        return "upgrade-0.1.17"
     if (
         status["runtime"] == "pixie-transformer"
         and status["spiritism_companion"]
@@ -619,6 +635,8 @@ def validate_prerequisite(status):
         "conflux-spiritism-0.3.2",
         "conflux-spiritism-0.3.3",
         "conflux-spiritism-0.3.6-right-click",
+        "conflux-spiritism-0.3.8",
+        "conflux-spiritism-0.3.7",
         "conflux-spiritism-0.3.7-hermit-rc1-uncalled",
         "conflux-spiritism-0.3.5-transfer-icon",
         "conflux-spiritism-0.3.4-transfer-withdrawn",
@@ -634,8 +652,8 @@ def validate_prerequisite(status):
     ):
         raise RuntimeError(
             "Install a reviewed Conflux Spiritism release through the "
-            "0.3.7 or Pixie Transformer through "
-            "0.1.16 first."
+            "0.3.8 or Pixie Transformer through "
+            "0.1.17 first."
         )
     raise RuntimeError("The installed Pixie Transformer state is incomplete.")
 

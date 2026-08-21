@@ -15,7 +15,7 @@ HERO_RECORD_STRIDE = 0x5C
 FIRST_SKILL_TYPE_OFFSET = 0x27CBDC
 NECROMANCY = 12
 EMPTY_SKILL = 0xFFFFFFFF
-RUNTIME_LOG_MARKER = "Conflux Spiritism runtime 21 Hermit Shack"
+RUNTIME_LOG_MARKER = "Conflux Spiritism runtime 22 native skill loaders"
 
 HEROES = (
     (128, "Pasis", 22, 1, 20, 1),
@@ -463,6 +463,8 @@ def last_launch_state(game_dir):
         and "necromancy rate hook=installed" in log
         and "hero dialog hook=installed" in log
         and "level-up hook=installed" in log
+        and "small skill native-loader hook=installed" in log
+        and "large skill native-loader hook=installed" in log
         and "HD hero selection hook=installed" in log
         and "HD exchange dialog hook=installed" in log
         and (
@@ -482,18 +484,22 @@ def last_launch_state(game_dir):
             in log
         )
         and (
-            "small skill frame overlay=ready; native group unchanged"
+            "small skill resource pair=ready; native group unchanged"
             in log
         )
         and (
-            "large skill frame overlay=ready; native group unchanged"
+            "large skill resource pair=ready; native group unchanged"
             in log
         )
         and (
             "exchange skill resource pair=ready; native group unchanged"
             in log
         )
-        and "secondary skill group mutation=disabled" in log
+        and "secondary skill frame-table writes=disabled" in log
+        and (
+            "hero+level-up scope=native control/popup loaders only"
+            in log
+        )
         and (
             "exchange right-click scope="
             "native popup loader filename only"
@@ -504,7 +510,8 @@ def last_launch_state(game_dir):
             in log
         )
         and (
-            "final=transfer+Hermit display hooks installed; "
+            "final=hero+level-up+transfer+Hermit native-loader hooks "
+            "installed; "
             "native HotA groups unchanged"
             in log
         )

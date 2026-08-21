@@ -2,6 +2,21 @@
 
 ## Unreleased - 2026-08-21
 
+- Released runtime 22 as Conflux Spiritism 0.3.8.
+- Diagnosed the town visiting/garrison hero-page crash at
+  `HotA.dll+0x7978A` as the remaining shared hero/level-up raw-frame overlay.
+  The renderer received a raw `DefFrame`; `EAX=0x51` produced the invalid
+  read at `0x86`.
+- Removed all secondary-skill frame-table writes. The hero and level-up
+  wrappers now change text only.
+- Hooked the native 44x44 control constructor at `0x004EA800` and the native
+  82x93 popup builder at `0x004F6C00`. Spiritism selects `SPIRIT.def` or
+  `SPIR82.def` before HotA loads and converts the image; Interference, Runes,
+  and every other skill retain the native extended atlases.
+- Completed five normal launch and clean-close cycles without changing the
+  crash log. In-game testing confirmed the Spiritism hero page and
+  right-click popup while stationed in town, and reconfirmed transfer
+  right-click and Hermit's Shack behavior.
 - Withdrew runtime 20 after the in-game Shack test emitted no interaction
   diagnostic. `HotA.dll+0x17A920` is a different secondary-skill reward
   callback, not the path used by Hermit's Shack.

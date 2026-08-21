@@ -1,6 +1,6 @@
 # Conflux Spiritism
 
-Version 0.3.7
+Version 0.3.8
 
 This HotA 1.8.0 upgrade gives every Conflux hero Spiritism in the first
 secondary-skill slot. It builds on the reviewed
@@ -87,12 +87,20 @@ Conflux Spiritist, then lets HotA's native popup builder load and convert
 `SPIR82.def` by filename for skill frames `39-41`. The transfer implementation
 is unchanged.
 
+Version 0.3.8 removes the last raw secondary-skill frame-table substitutions.
+Runtime 22 hooks the native 44x44 skill-control constructor at `0x004EA800`
+and the native 82x93 popup builder at `0x004F6C00`. Only Spiritism controls
+and frames `39-41` select `SPIRIT.def` or `SPIR82.def`; every other skill,
+including Interference and Runes, retains HotA's native extended atlas. This
+fixes the town visiting/garrison hero-page crash while preserving the hero
+page, level-up, transfer, and Hermit's Shack Spiritism images.
+
 ## Installed State
 
 Installed release state:
 
-- Runtime 21, SHA-256
-  `c0c25c8be7e69f55c4ece35e11b791934d58b6279799474159802826983c46d8`
+- Runtime 22, SHA-256
+  `2201c2a38ce4816d4678c5d3d5bc15dd4a0894bcc190d0d747dcc4e8b6ed904a`
 - Spiritism for all sixteen Conflux heroes
 - Conflux-only 10%/20%/30% rates
 - Sprite raising for Nyx and Pixie raising for other Conflux heroes
@@ -105,8 +113,8 @@ Installed release state:
 
 The guarded installer and static machine-code checks pass in the live Pixie
 Transformer composition. The persistent 32x32 transfer icon and Spiritism
-right-click popup are confirmed in game. Hermit's Shack is also confirmed to
-show the Spiritism description and 82x93 icon.
+right-click popup, Hermit's Shack popup, and the standard hero page while the
+hero is stationed in town are confirmed in game.
 
 Removed or disabled:
 
@@ -114,7 +122,7 @@ Removed or disabled:
 - Runtime specialty frame-pointer replacement
 - Runtime specialty pixel-buffer replacement
 
-`IX32.def` and `IX44.def` remain separate resources. Runtime 21 references
+`IX32.def` and `IX44.def` remain separate resources. Runtime 22 references
 them only while constructing a Nyx-specific dialog; it never copies their
 frames or pixels into HotA's loaded `UN32.def` or `UN44.def` objects.
 
@@ -241,7 +249,8 @@ python3 patch.py restore --game-dir "../.." \
 4. Confirm Lacus and Fiur show Advanced Spiritism.
 5. Confirm every second skill in the table above is unchanged.
 6. Enter a map with a non-Nyx Conflux hero and inspect the hero screen and
-   right-click Spiritism detail dialog.
+   right-click Spiritism detail dialog. Repeat while the hero is stationed
+   in a town as visiting and garrison hero; both views must remain stable.
 7. Win battles against living creatures and confirm Nyx raises Sprites while
    another Conflux hero raises Pixies, both with a Spiritism result message.
 8. Open a non-Conflux Necromancy hero and confirm normal Necromancy text,
